@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QMainWindow, QMenuBar, QStatusBar, QVBoxLayout, QWidget, QFileDialog, QSizePolicy, QToolBar, QSpinBox, QLabel, QHBoxLayout, QWidgetAction, QComboBox, QPushButton, QColorDialog, QDockWidget, QTreeWidget, QTreeWidgetItem, QHeaderView, QMenu, QAbstractItemView, QDialog, QVBoxLayout, QTreeWidget, QDialogButtonBox, QSplitter, QGroupBox, QFormLayout
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, QRect
+from PyQt6.QtWidgets import QMainWindow, QMenuBar, QStatusBar, QVBoxLayout, QWidget, QFileDialog, QSizePolicy, QToolBar, QSpinBox, QLabel, QHBoxLayout, QWidgetAction, QComboBox, QPushButton, QColorDialog, QDockWidget, QTreeWidget, QTreeWidgetItem, QHeaderView, QMenu, QAbstractItemView, QDialog, QVBoxLayout, QTreeWidget, QDialogButtonBox, QSplitter, QGroupBox, QFormLayout, QFrame
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, QRect, QTimer
 from PyQt6.QtGui import QColor, QAction, QPixmap, QIcon
 from .canvas import Canvas
 from .thumbnail_grid import ThumbnailWidget
@@ -9,15 +9,99 @@ class ThumbnailTreeWidgetItem(QTreeWidgetItem):
     def __init__(self, parent=None, text="", pixmap=None):
         super().__init__(parent)
         self.setText(0, text)
+        self.original_pixmap = pixmap  # Store the original pixmap
         if pixmap:
             self.setIcon(0, QIcon(pixmap))
     
     def set_thumbnail(self, pixmap):
         """Set the thumbnail icon for this item"""
+        self.original_pixmap = pixmap
         if pixmap:
             # Scale the pixmap to a small size for the thumbnail
             scaled_pixmap = pixmap.scaled(32, 32, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
             self.setIcon(0, QIcon(scaled_pixmap))
+    
+    def get_original_pixmap(self):
+        """Get the original pixmap for this item"""
+        return self.original_pixmap
+
+
+class AnimationPreviewWidget(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameStyle(QFrame.Shape.Box)
+        self.setFixedSize(200, 200)  # Fixed size for the preview area
+        
+        layout = QVBoxLayout(self)
+        
+        # Label to display the current sprite
+        self.sprite_label = QLabel()
+        self.sprite_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.sprite_label.setMinimumSize(150, 150)
+        layout.addWidget(self.sprite_label)
+        
+        # Controls layout
+        controls_layout = QHBoxLayout()
+        
+        # Play button
+        self.play_button = QPushButton("Play")
+        self.play_button.clicked.connect(self._toggle_animation)
+        controls_layout.addWidget(self.play_button)
+        
+        # Frame rate control
+        self.fps_label = QLabel("FPS:")
+        controls_layout.addWidget(self.fps_label)
+        
+        self.fps_spinbox = QSpinBox()
+        self.fps_spinbox.setRange(1, 30)
+        self.fps_spinbox.setValue(10)
+        self.fps_spinbox.valueChanged.connect(self._update_timer_interval)
+        controls_layout.addWidget(self.fps_spinbox)
+        
+        layout.addLayout(controls_layout)
+        
+        # Animation variables
+        self.sprites = []
+        self.current_frame = 0
+        self.is_playing = False
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._next_frame)
+        
+        # Set initial state
+        self._update_timer_interval()
+        self.sprite_label.setText("No Animation")
+        
+    def set_sprites(self, sprites):
+        """Set the list of sprites for the animation"""
+        self.sprites = sprites
+        self.current_frame = 0
+        if self.sprites:
+            self.sprite_label.setPixmap(self.sprites[0])
+        else:
+            self.sprite_label.setText("No Frames")
+    
+    def _toggle_animation(self):
+        """Toggle between play and pause states"""
+        if self.is_playing:
+            self.timer.stop()
+            self.play_button.setText("Play")
+        else:
+            if self.sprites:
+                self.timer.start()
+                self.play_button.setText("Pause")
+        self.is_playing = not self.is_playing
+    
+    def _next_frame(self):
+        """Show the next frame in the animation"""
+        if self.sprites:
+            self.current_frame = (self.current_frame + 1) % len(self.sprites)
+            self.sprite_label.setPixmap(self.sprites[self.current_frame])
+    
+    def _update_timer_interval(self):
+        """Update the timer interval based on the FPS value"""
+        fps = self.fps_spinbox.value()
+        interval = 1000 // fps  # Convert FPS to milliseconds
+        self.timer.setInterval(interval)
 
 
 class MainWindow(QMainWindow):
@@ -40,9 +124,13 @@ class MainWindow(QMainWindow):
         self.canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         splitter.addWidget(self.canvas)
 
-        # Right panel containing the tree, properties and thumbnails
+        # Right panel containing the animation preview, properties, tree and thumbnails
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
+        
+        # Create the animation preview widget
+        self.animation_preview = AnimationPreviewWidget()
+        right_layout.addWidget(self.animation_preview)
         
         # Create a group box for sprite properties
         self.properties_group = QGroupBox("Sprite Properties")
@@ -327,9 +415,18 @@ class MainWindow(QMainWindow):
 
     def _on_tree_item_clicked(self, item, column):
         """Handle when a tree item is clicked"""
-        # Check if the clicked item is a sprite (doesn't start with the group's name followed by a space and number)
-        parent_item = item.parent()
-        if parent_item is not None:  # It's a child item (sprite)
+        # Check if the clicked item is a group (has children or is a top-level item)
+        if item.childCount() > 0 or item.parent() is None:
+            # This is a group - collect all sprite items under it for animation
+            sprite_pixmaps = []
+            self._collect_sprite_pixmaps(item, sprite_pixmaps)
+            
+            # Set the collected sprites to the animation preview
+            self.animation_preview.set_sprites(sprite_pixmaps)
+        else:
+            # This is a sprite item - reset the animation preview
+            self.animation_preview.set_sprites([])
+            
             # Extract coordinates from the text if it contains coordinate info
             text = item.text(0)
             # If the item was created from grid selection, it might have coordinates in its data
@@ -345,9 +442,19 @@ class MainWindow(QMainWindow):
             
             # Reset if we can't extract coordinates
             self._reset_properties_display()
-        else:
-            # It's a group, reset the display
-            self._reset_properties_display()
+
+    def _collect_sprite_pixmaps(self, item, sprite_list):
+        """Recursively collect all sprite pixmaps from a tree item and its children"""
+        # Check if this is a ThumbnailTreeWidgetItem with an original pixmap
+        if hasattr(item, 'get_original_pixmap'):
+            original_pixmap = item.get_original_pixmap()
+            if original_pixmap and not original_pixmap.isNull():
+                sprite_list.append(original_pixmap)
+        
+        # Recursively process all children
+        for i in range(item.childCount()):
+            child = item.child(i)
+            self._collect_sprite_pixmaps(child, sprite_list)
 
     def _reset_properties_display(self):
         """Reset the properties display"""
