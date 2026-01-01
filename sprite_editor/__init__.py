@@ -1,0 +1,3 @@
+"""
+Sprite Editor package initializer.
+"""

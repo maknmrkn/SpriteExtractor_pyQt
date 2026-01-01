@@ -1,0 +1,4 @@
+PyQt6>=6.0
+# Optional for future image processing
+# Pillow
+# numpy
