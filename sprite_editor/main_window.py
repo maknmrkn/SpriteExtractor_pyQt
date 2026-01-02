@@ -95,6 +95,10 @@ class MainWindow(QMainWindow):
         # Toolbar for Grid Settings
         self._create_grid_toolbar()
 
+        # Auto-detection toolbar (initially hidden)
+        self._create_auto_detect_toolbar()
+        self.auto_detect_toolbar.setVisible(False)
+
         # Status Bar
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage("Ready")
@@ -130,7 +134,7 @@ class MainWindow(QMainWindow):
         # Show Grid Toggle
         self.show_grid_toggle = toolbar.addAction("Show Grid")
         self.show_grid_toggle.setCheckable(True)
-        self.show_grid_toggle.setChecked(False)
+        self.show_grid_toggle.setChecked(True)  # Default to checked
         self.show_grid_toggle.triggered.connect(self._on_grid_toggled)
 
         toolbar.addSeparator()
@@ -241,41 +245,96 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self.bg_color_button)
         self._update_bg_color_button(QColor(25, 25, 25))  # Default dark gray
 
+    def _create_auto_detect_toolbar(self):
+        """Create the auto-detection toolbar"""
+        self.auto_detect_toolbar = QToolBar("Auto Detection Settings")
+        self.auto_detect_toolbar.setIconSize(QSize(16, 16))
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.auto_detect_toolbar)
+
+        # Toggle for auto-detection mode
+        self.auto_detect_toggle = self.auto_detect_toolbar.addAction("Auto Detection Mode")
+        self.auto_detect_toggle.setCheckable(True)
+        self.auto_detect_toggle.setChecked(False)
+        self.auto_detect_toggle.triggered.connect(self._toggle_auto_detect_mode)
+
+        self.auto_detect_toolbar.addSeparator()
+
+        # Min width for detection
+        self.auto_detect_toolbar.addWidget(QLabel("Min Width:"))
+        self.min_width_spinbox = QSpinBox()
+        self.min_width_spinbox.setRange(1, 2048)
+        self.min_width_spinbox.setValue(8)
+        self.min_width_spinbox.setSingleStep(1)
+        self.min_width_spinbox.setMaximumWidth(70)
+        self.auto_detect_toolbar.addWidget(self.min_width_spinbox)
+
+        # Min height for detection
+        self.auto_detect_toolbar.addWidget(QLabel("Min Height:"))
+        self.min_height_spinbox = QSpinBox()
+        self.min_height_spinbox.setRange(1, 2048)
+        self.min_height_spinbox.setValue(8)
+        self.min_height_spinbox.setSingleStep(1)
+        self.min_height_spinbox.setMaximumWidth(70)
+        self.auto_detect_toolbar.addWidget(self.min_height_spinbox)
+
+        # Auto-detect button
+        self.auto_detect_button = self.auto_detect_toolbar.addAction("Detect Sprites")
+        self.auto_detect_button.triggered.connect(self._auto_detect_frames)
+
+        # Clear detections button
+        self.clear_detections_button = self.auto_detect_toolbar.addAction("Clear Detections")
+        self.clear_detections_button.triggered.connect(self._clear_detections)
+
+    def _toggle_auto_detect_mode(self, checked):
+        """Toggle between grid mode and auto-detection mode"""
+        if checked:
+            # Switch to auto-detection mode
+            self.show_grid_toggle.setChecked(False)  # Disable grid mode
+            self._on_grid_toggled(False)  # Update canvas
+            self.canvas.in_autodetect_mode = True
+            self.statusBar().showMessage("Auto-detection mode enabled")
+        else:
+            # Switch back to grid mode
+            self.show_grid_toggle.setChecked(True)  # Enable grid mode
+            self._on_grid_toggled(True)  # Update canvas
+            self.canvas.in_autodetect_mode = False
+            self.statusBar().showMessage("Grid mode enabled")
+
     def _show_tree_context_menu(self, position):
         """Show context menu for the sprite tree."""
         menu = QMenu()
         
         # Add actions based on selection
-        selected_items = self.sprite_tree.selectedItems()
+        selected_items = self.tree_manager.sprite_tree.selectedItems()
         if selected_items:
             item = selected_items[0]
             
             # Check if the selected item is a group or a sprite
-            if self._is_group_item(item):
+            if self.tree_manager._is_group_item(item):
                 # For groups, allow adding subgroups and sprite items
-                menu.addAction("Add Subgroup", lambda: self._add_subgroup(item))
-                menu.addAction("Add Sprite Item", lambda: self._add_sprite_item(item))
+                menu.addAction("Add Subgroup", lambda: self.tree_manager._add_subgroup(item))
+                menu.addAction("Add Sprite Item", lambda: self.tree_manager._add_sprite_item(item))
                 
                 # If we have selected sprites in canvas, allow moving them to this group
                 if hasattr(self.canvas, 'selected_cells') and len(self.canvas.selected_cells) > 0:
-                    menu.addAction("Move Selected Sprites to Group", lambda: self._move_selected_sprites_to_group(item))
+                    menu.addAction("Move Selected Sprites to Group", lambda: self.tree_manager._move_selected_sprites_to_group(item))
                 
                 menu.addSeparator()
-                menu.addAction("Delete", lambda: self._delete_item(item))
+                menu.addAction("Delete", lambda: self.tree_manager._delete_item(item))
             else:
                 # For sprite items, allow renaming and deleting
-                menu.addAction("Rename", lambda: self._rename_item(item))
-                menu.addAction("Delete", lambda: self._delete_item(item))
+                menu.addAction("Rename", lambda: self.tree_manager._rename_item(item))
+                menu.addAction("Delete", lambda: self.tree_manager._delete_item(item))
         else:
             # No selection - add root level group
-            menu.addAction("Add Group", self._add_group)
+            menu.addAction("Add Group", self.tree_manager._add_group)
         
-        menu.exec(self.sprite_tree.viewport().mapToGlobal(position))
+        menu.exec(self.tree_manager.sprite_tree.viewport().mapToGlobal(position))
 
     def _rename_item(self, item):
         """Rename the selected item."""
         # Use the built-in editing capability of QTreeWidget
-        self.sprite_tree.editItem(item, 0)
+        self.tree_manager.sprite_tree.editItem(item, 0)
 
     def _move_selected_sprites_to_group(self, target_group):
         """Move selected sprites from canvas to the target group."""
@@ -291,7 +350,7 @@ class MainWindow(QMainWindow):
             sprite_pixmap = self._extract_sprite_pixmap(x, y, width, height)
             
             # Create a sprite item with details and thumbnail
-            sprite_item = self._add_sprite_item(target_group, x, y, width, height, sprite_pixmap)
+            sprite_item = self.tree_manager._add_sprite_item(target_group, x, y, width, height, sprite_pixmap)
             
             # Store coordinates in the item
             sprite_item.setData(0, Qt.ItemDataRole.UserRole, (x, y, width, height))
@@ -304,14 +363,14 @@ class MainWindow(QMainWindow):
         self.canvas.update_display()
         
         # Expand the target group to show the new sprites
-        self.sprite_tree.expandItem(target_group)
+        self.tree_manager.sprite_tree.expandItem(target_group)
 
     def _add_group(self):
         """Add a new root-level group to the tree."""
-        item = QTreeWidgetItem(self.sprite_tree)
+        item = QTreeWidgetItem(self.tree_manager.sprite_tree)
         item.setText(0, "New Group")
         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-        self.sprite_tree.expandItem(item)
+        self.tree_manager.sprite_tree.expandItem(item)
         # Initialize counter for this group using the item's unique text and memory address
         item_id = f"{item.text(0)}_{id(item)}"
         self.group_counters = getattr(self, 'group_counters', {})
@@ -322,7 +381,7 @@ class MainWindow(QMainWindow):
         item = QTreeWidgetItem(parent)
         item.setText(0, "New Subgroup")
         item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-        self.sprite_tree.expandItem(parent)
+        self.tree_manager.sprite_tree.expandItem(parent)
         # Initialize counter for this group using the item's unique text and memory address
         item_id = f"{item.text(0)}_{id(item)}"
         self.group_counters = getattr(self, 'group_counters', {})
@@ -352,18 +411,18 @@ class MainWindow(QMainWindow):
     def _on_tree_key_press(self, event):
         """Handle key press events in the tree widget."""
         if event.key() == Qt.Key.Key_Delete:
-            selected_items = self.sprite_tree.selectedItems()
+            selected_items = self.tree_manager.sprite_tree.selectedItems()
             if selected_items:
                 item = selected_items[0]
-                self._delete_item_with_confirmation(item)
+                self.tree_manager._delete_item_with_confirmation(item)
         else:
             # Call the original keyPressEvent for other keys
-            QTreeWidget.keyPressEvent(self.sprite_tree, event)
+            QTreeWidget.keyPressEvent(self.tree_manager.sprite_tree, event)
 
     def _delete_item_with_confirmation(self, item):
         """Delete the selected item from the tree with confirmation for groups."""
         # Check if it's a group (has children or is a top-level item)
-        is_group = self._is_group_item(item)
+        is_group = self.tree_manager._is_group_item(item)
         
         if is_group and item.childCount() > 0:
             # Show confirmation dialog for groups with children
@@ -391,7 +450,7 @@ class MainWindow(QMainWindow):
                 return
         
         # Perform the actual deletion
-        self._delete_item(item)
+        self.tree_manager._delete_item(item)
 
     def _delete_item(self, item):
         """Delete the selected item from the tree."""
@@ -404,9 +463,9 @@ class MainWindow(QMainWindow):
                 del self.group_counters[item_id]
         else:
             # Root item
-            index = self.sprite_tree.indexOfTopLevelItem(item)
+            index = self.tree_manager.sprite_tree.indexOfTopLevelItem(item)
             if index >= 0:
-                self.sprite_tree.takeTopLevelItem(index)
+                self.tree_manager.sprite_tree.takeTopLevelItem(index)
                 # Also remove any counter associated with this item
                 item_id = f"{item.text(0)}_{id(item)}"
                 if hasattr(self, 'group_counters') and item_id in self.group_counters:
@@ -426,7 +485,7 @@ class MainWindow(QMainWindow):
         if item.childCount() > 0 or item.parent() is None:
             # This is a group - collect all sprite items under it for animation
             sprite_pixmaps = []
-            self._collect_sprite_pixmaps(item, sprite_pixmaps)
+            self.tree_manager._collect_sprite_pixmaps(item, sprite_pixmaps)
             
             # Set the collected sprites to the animation preview
             self.animation_preview.set_sprites(sprite_pixmaps)
@@ -466,6 +525,7 @@ class MainWindow(QMainWindow):
     def _reset_properties_display(self):
         """Reset the properties display"""
         self.x_label.setText("-")
+        self.y_label.setText("-")
         self.y_label.setText("-")
         self.width_label.setText("-")
         self.height_label.setText("-")
@@ -548,6 +608,10 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("No image loaded to detect frames from.")
             return
 
+        # Get min dimensions from spinboxes
+        min_width = self.min_width_spinbox.value()
+        min_height = self.min_height_spinbox.value()
+
         # Disable grid while detecting sprites
         self.show_grid_toggle.setChecked(False)
         self.canvas.show_grid = False
@@ -555,7 +619,7 @@ class MainWindow(QMainWindow):
 
         # Save the current pixmap path to detect sprites
         if hasattr(self.canvas, 'current_path') and self.canvas.current_path:
-            detected_sprites = self.sprite_detector.detect_sprites(self.canvas.current_path)
+            detected_sprites = self.sprite_detector.detect_sprites(self.canvas.current_path, min_width, min_height)
             
             if detected_sprites:
                 # Clear any existing selections
@@ -577,6 +641,12 @@ class MainWindow(QMainWindow):
         else:
             self.statusBar().showMessage("Could not detect sprites: image path not available.")
 
+    def _clear_detections(self):
+        """Clear all detected sprites from the canvas."""
+        self.canvas.selected_cells = []
+        self.canvas.update_display()
+        self.statusBar().showMessage("Cleared all detections.")
+
     def open_file(self):
         """Open a file dialog to select an image and load it into the canvas."""
         path, _ = QFileDialog.getOpenFileName(
@@ -590,5 +660,8 @@ class MainWindow(QMainWindow):
                 self.statusBar().showMessage(f"Loaded: {path}")
                 # Add a default group with individual sprite items when image is loaded
                 self.tree_manager._add_default_sprites_group()
+                
+                # Show the auto-detect toolbar
+                self.auto_detect_toolbar.setVisible(True)
             else:
                 self.statusBar().showMessage("Failed to load image.")

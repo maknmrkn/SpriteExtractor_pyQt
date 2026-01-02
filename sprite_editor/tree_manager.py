@@ -206,10 +206,17 @@ class TreeManager:
             if isinstance(data, tuple) and len(data) == 4:
                 x, y, w, h = data
                 # Select this sprite in canvas (if in auto-detect mode)
-                if hasattr(self.main_window.canvas, 'in_autodetect_mode') and self.main_window.canvas.in_autodetect_mode:
-                    self.main_window.canvas.selected_cells = []
-                    self.main_window.canvas.selected_cells.append(self._find_sprite_rect_in_canvas(x, y, w, h))
-                    self.main_window.canvas.update_display()
+                try:
+                    if (hasattr(self.main_window, 'canvas') and 
+                        hasattr(self.main_window.canvas, 'in_autodetect_mode') and 
+                        self.main_window.canvas.in_autodetect_mode):
+                        self.main_window.canvas.selected_cells = []
+                        found_rect = self._find_sprite_rect_in_canvas(x, y, w, h)
+                        if found_rect:
+                            self.main_window.canvas.selected_cells.append(found_rect)
+                            self.main_window.canvas.update_display()
+                except Exception as e:
+                    print(f"Error selecting sprite in canvas: {e}")
 
     def _on_tree_item_double_clicked(self, item, column):
         """Handle double click on tree item."""
