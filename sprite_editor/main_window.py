@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QMainWindow, QMenuBar, QStatusBar, QVBoxLayout, QWidget, QFileDialog, QSizePolicy, QToolBar, QSpinBox, QLabel, QHBoxLayout, QWidgetAction, QComboBox, QPushButton, QColorDialog, QDockWidget, QTreeWidget, QTreeWidgetItem, QHeaderView, QMenu, QAbstractItemView, QDialog, QVBoxLayout, QTreeWidget, QDialogButtonBox, QSplitter, QGroupBox, QFormLayout, QFrame
+from PyQt6.QtWidgets import QMainWindow, QMenuBar, QStatusBar, QVBoxLayout, QWidget, QFileDialog, QSizePolicy, QToolBar, QSpinBox, QLabel, QHBoxLayout, QWidgetAction, QComboBox, QPushButton, QColorDialog, QDockWidget, QTreeWidget, QTreeWidgetItem, QHeaderView, QMenu, QAbstractItemView, QDialog, QVBoxLayout, QTreeWidget, QDialogButtonBox, QMessageBox, QFrame, QSplitter, QGroupBox, QFormLayout
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, QRect, QTimer
 from PyQt6.QtGui import QColor, QAction, QPixmap, QIcon
 from .canvas import Canvas
@@ -160,6 +160,10 @@ class MainWindow(QMainWindow):
         self.sprite_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.sprite_tree.customContextMenuRequested.connect(self._show_tree_context_menu)
         self.sprite_tree.itemClicked.connect(self._on_tree_item_clicked)  # Connect to handle item selection
+        
+        # Add keyboard delete support
+        self.sprite_tree.keyPressEvent = self._on_tree_key_press
+        
         right_layout.addWidget(self.sprite_tree)
         
         splitter.addWidget(right_panel)
@@ -395,6 +399,50 @@ class MainWindow(QMainWindow):
         if pixmap:
             item.set_thumbnail(pixmap)
         return item
+
+    def _on_tree_key_press(self, event):
+        """Handle key press events in the tree widget."""
+        if event.key() == Qt.Key.Key_Delete:
+            selected_items = self.sprite_tree.selectedItems()
+            if selected_items:
+                item = selected_items[0]
+                self._delete_item_with_confirmation(item)
+        else:
+            # Call the original keyPressEvent for other keys
+            QTreeWidget.keyPressEvent(self.sprite_tree, event)
+
+    def _delete_item_with_confirmation(self, item):
+        """Delete the selected item from the tree with confirmation for groups."""
+        # Check if it's a group (has children or is a top-level item)
+        is_group = self._is_group_item(item)
+        
+        if is_group and item.childCount() > 0:
+            # Show confirmation dialog for groups with children
+            reply = QMessageBox.question(
+                self,
+                "Confirm Delete",
+                f"Are you sure you want to delete the group '{item.text(0)}' and all its contents?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.No:
+                return
+        elif is_group:
+            # Show confirmation dialog for groups without children
+            reply = QMessageBox.question(
+                self,
+                "Confirm Delete",
+                f"Are you sure you want to delete the group '{item.text(0)}'?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.No:
+                return
+        
+        # Perform the actual deletion
+        self._delete_item(item)
 
     def _delete_item(self, item):
         """Delete the selected item from the tree."""
