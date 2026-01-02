@@ -169,9 +169,12 @@ class Canvas(QScrollArea):
                         all_coords = [(rect.x(), rect.y(), rect.width(), rect.height()) for rect in self.selected_cells]
                         self.multi_grid_selection.emit(all_coords)
                 else:
-                    # Single selection - just highlight the clicked sprite
+                    # Single selection - clear the multi-selection if not using Ctrl
                     if event.button() == Qt.MouseButton.LeftButton:
-                        # Don't clear other sprites, just set this one as the current selection
+                        # Clear the multi-selection when clicking on any sprite without Ctrl
+                        self.selected_cells = []
+                        
+                        # Set the clicked sprite as the current selection
                         self.selected_cell_rect = clicked_rect
                         
                         # Update display to show highlights
@@ -186,6 +189,12 @@ class Canvas(QScrollArea):
                             clicked_rect.height()
                         )
                     elif event.button() == Qt.MouseButton.RightButton:
+                        # Clear the multi-selection when right-clicking without Ctrl
+                        if len(self.selected_cells) > 0:
+                            print(f"DEBUG: Clearing multi-selection with {len(self.selected_cells)} items before right-click")
+                            self.selected_cells = []
+                            self.update_display()
+                        
                         # Right click on detected sprite - emit the signal for single sprite
                         print(f"DEBUG: Emitting grid_cell_right_clicked for auto-detected rect at ({clicked_rect.x()}, {clicked_rect.y()}, {clicked_rect.width()}x{clicked_rect.height()})")
                         self.grid_cell_right_clicked.emit(
@@ -198,9 +207,10 @@ class Canvas(QScrollArea):
                 print("DEBUG: Clicked outside detected sprites")
                 # Clicked outside detected sprites
                 if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
-                    # Clear the current selection highlight if not using Ctrl
+                    # Clear the multi-selection and current selection highlight if not using Ctrl
+                    self.selected_cells = []
                     self.selected_cell_rect = None
-                    print("DEBUG: Cleared selected_cell_rect")
+                    print("DEBUG: Cleared selected_cells and selected_cell_rect")
                     self.update_display()
                 
                 # Handle right-click outside detected sprites
