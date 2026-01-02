@@ -17,5 +17,5 @@ def show_info(parent, title, message):
 
 
 def show_warning(parent, title, message):
-"""Show a warning message box."""
+    """Show a warning message box."""
     QMessageBox.warning(parent, title, message)
