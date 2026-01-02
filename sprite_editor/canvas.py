@@ -43,6 +43,8 @@ class Canvas(QScrollArea):
         self.selected_cell_rect = None
         # Multiple selected cells for multi-selection
         self.selected_cells = []
+        # All detected sprites (these will always be shown on canvas when in auto-detect mode)
+        self.detected_sprites = []
         
         # Auto-detection mode flag
         self.in_autodetect_mode = False
@@ -75,8 +77,8 @@ class Canvas(QScrollArea):
         # Draw grid if enabled and not in auto-detection mode
         if self.show_grid and not self.in_autodetect_mode:
             self._draw_grid(painter)
-        elif self.in_autodetect_mode and self.selected_cells:
-            # When in auto-detection mode, draw the detected rectangles
+        elif self.in_autodetect_mode:
+            # When in auto-detection mode, draw all detected sprites
             self._draw_detected_sprites(painter)
         
         # Highlight selected cell if exists
@@ -120,7 +122,7 @@ class Canvas(QScrollArea):
         painter.setPen(pen)
         
         # Draw all detected sprite rectangles
-        for rect in self.selected_cells:
+        for rect in self.detected_sprites:
             painter.drawRect(rect)
     
     def mousePressEvent(self, event):
@@ -133,27 +135,45 @@ class Canvas(QScrollArea):
         x = pos.x() + scroll_x - self.image_label.x()
         y = pos.y() + scroll_y - self.image_label.y()
         
+        print(f"DEBUG: mousePressEvent at ({x}, {y}), modifiers: {event.modifiers()}, in_autodetect_mode: {self.in_autodetect_mode}")
+        
         # In auto-detection mode, handle clicks differently
         if self.in_autodetect_mode:
             # Check if the click is on a detected sprite rectangle
             clicked_rect = None
-            for rect in self.selected_cells:
+            for rect in self.detected_sprites:
                 if rect.contains(x, y):
                     clicked_rect = rect
                     break
             
+            print(f"DEBUG: clicked_rect is {clicked_rect}, total detected_sprites: {len(self.detected_sprites)}, total selected_cells: {len(self.selected_cells)}")
+            
             if clicked_rect:
                 # Toggle selection in multi-selection list if Ctrl is pressed
                 if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                    print("DEBUG: Control key is pressed - toggling selection")
                     if clicked_rect in self.selected_cells:
+                        # If it's in the selection, remove it
                         self.selected_cells.remove(clicked_rect)
+                        print(f"DEBUG: Removed rect from selection, now {len(self.selected_cells)} selected")
                     else:
+                        # If it's not in the selection, add it
                         self.selected_cells.append(clicked_rect)
+                        print(f"DEBUG: Added rect to selection, now {len(self.selected_cells)} selected")
+                    
+                    # Update display to show highlights
+                    self.update_display()
+                    
+                    # Emit multi-selection signal if right-clicking or if we have multiple selected
+                    if event.button() == Qt.MouseButton.RightButton and len(self.selected_cells) > 0:
+                        all_coords = [(rect.x(), rect.y(), rect.width(), rect.height()) for rect in self.selected_cells]
+                        self.multi_grid_selection.emit(all_coords)
                 else:
-                    # Single selection
+                    # Single selection - just highlight the clicked sprite
                     if event.button() == Qt.MouseButton.LeftButton:
-                        # Clear multi-selection and select only this rectangle
-                        self.selected_cells = [clicked_rect]
+                        # Don't clear other sprites, just set this one as the current selection
+                        self.selected_cell_rect = clicked_rect
+                        
                         # Update display to show highlights
                         self.update_display()
                         
@@ -166,7 +186,7 @@ class Canvas(QScrollArea):
                             clicked_rect.height()
                         )
                     elif event.button() == Qt.MouseButton.RightButton:
-                        # Right click on detected sprite - emit the signal
+                        # Right click on detected sprite - emit the signal for single sprite
                         print(f"DEBUG: Emitting grid_cell_right_clicked for auto-detected rect at ({clicked_rect.x()}, {clicked_rect.y()}, {clicked_rect.width()}x{clicked_rect.height()})")
                         self.grid_cell_right_clicked.emit(
                             clicked_rect.x(), 
@@ -175,10 +195,12 @@ class Canvas(QScrollArea):
                             clicked_rect.height()
                         )
             else:
+                print("DEBUG: Clicked outside detected sprites")
                 # Clicked outside detected sprites
                 if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
-                    # Clear selections if Ctrl is not pressed
-                    self.selected_cells = []
+                    # Clear the current selection highlight if not using Ctrl
+                    self.selected_cell_rect = None
+                    print("DEBUG: Cleared selected_cell_rect")
                     self.update_display()
                 
                 # Handle right-click outside detected sprites
@@ -253,6 +275,7 @@ class Canvas(QScrollArea):
                 # Click was outside any grid cell
                 if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
                     # Clear selections only if Ctrl is not pressed
+                    self.selected_cell_rect = None
                     self.selected_cells = []
                     self.update_display()
                 
@@ -263,7 +286,6 @@ class Canvas(QScrollArea):
                     
                     # Emit multi-selection signal with all coordinates
                     self.multi_grid_selection.emit(all_coords)
-
     def _draw_grid(self, painter: QPainter):
         """Draw a grid overlay as separate cells with spacing between them, creating a Unity-like sprite editor appearance."""
         pen = QPen(self.grid_color)

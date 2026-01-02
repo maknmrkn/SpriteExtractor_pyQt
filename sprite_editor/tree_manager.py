@@ -99,6 +99,8 @@ class TreeManager:
         self.context_menu._on_grid_cell_right_clicked(x, y, width, height)
     
     def _on_multi_grid_selection(self, selected_rects):
+        """Handle multi-grid selection with Ctrl key."""
+        # This method now handles adding multiple selected sprites to groups
         self.context_menu._on_multi_grid_selection(selected_rects)
     
     def _get_all_groups(self):

@@ -540,6 +540,7 @@ class MainWindow(QMainWindow):
         """Handle grid cell right-click and show group selection dialog."""
         print(f"DEBUG: _on_grid_cell_right_clicked called with ({x}, {y}, {width}x{height})")
         # This method is now just a proxy to the tree manager
+        # In auto-detection mode, we'll use multi-selection instead
         pass
 
     def _extract_sprite_pixmap(self, x, y, width, height):
@@ -615,6 +616,8 @@ class MainWindow(QMainWindow):
         # Disable grid while detecting sprites
         self.show_grid_toggle.setChecked(False)
         self.canvas.show_grid = False
+        self.canvas.in_autodetect_mode = True
+        self.auto_detect_toggle.setChecked(True)  # Enable auto-detect mode
         self.canvas.update_display()
 
         # Save the current pixmap path to detect sprites
@@ -622,20 +625,19 @@ class MainWindow(QMainWindow):
             detected_sprites = self.sprite_detector.detect_sprites(self.canvas.current_path, min_width, min_height)
             
             if detected_sprites:
-                # Clear any existing selections
+                # Clear any existing selections and detections
                 self.canvas.selected_cells = []
+                self.canvas.detected_sprites = []
                 
-                # Add detected sprites to the canvas
+                # Add detected sprites to the canvas as detected (not selected)
                 for rect in detected_sprites:
-                    self.canvas.selected_cells.append(rect)
+                    self.canvas.detected_sprites.append(rect)
                 
                 # Update canvas display
                 self.canvas.update_display()
                 
-                # Add a default group with detected sprites
-                self.tree_manager._add_default_sprites_group(detected_sprites)
-                
-                self.statusBar().showMessage(f"Auto-detected {len(detected_sprites)} sprites.")
+                # Don't add to tree automatically - just show on canvas
+                self.statusBar().showMessage(f"Auto-detected {len(detected_sprites)} sprites. Click on them to work with them.")
             else:
                 self.statusBar().showMessage("No sprites detected in the image.")
         else:
