@@ -17,6 +17,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Sprite Editor")
         self.resize(1200, 800)
 
+        # Initialize group counters
+        self.group_counters = {}
+
         # Create central widget with a vertical layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -66,7 +69,7 @@ class MainWindow(QMainWindow):
         self.tree_manager.setup_tree()
         self.ui_utils = UIUtils(self)
         
-        right_layout.addWidget(self.sprite_tree)
+        right_layout.addWidget(self.tree_manager.sprite_tree)
         
         splitter.addWidget(right_panel)
         splitter.setStretchFactor(0, 3)  # Canvas takes 3/4 of space

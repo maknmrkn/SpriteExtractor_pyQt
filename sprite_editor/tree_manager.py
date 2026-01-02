@@ -1,510 +1,237 @@
-from PyQt6.QtWidgets import QTreeWidget, QTreeWidgetItem, QMenu, QMessageBox, QDialog, QVBoxLayout, QDialogButtonBox, QAbstractItemView
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QTreeWidget, QTreeWidgetItem, QMenu, QAbstractItemView, QHeaderView, QInputDialog
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QCursor
 from .tree_item import ThumbnailTreeWidgetItem
+from .tree_structure_manager import TreeStructureManager
+from .tree_context_menu import TreeContextMenu
+from .sprite_operations import SpriteOperations
+from .export_operations import ExportOperations
 
 
 class TreeManager:
-    """
-    Handles all tree-related operations in the main window
-    """
-    
     def __init__(self, main_window):
         self.main_window = main_window
-        self.group_counters = {}
         
+        # Initialize modular components
+        self.structure_manager = TreeStructureManager(main_window)
+        
+        # Initialize the context menu with a reference to self
+        self.context_menu = TreeContextMenu(self)
+        self.sprite_operations = SpriteOperations(self)
+        self.export_operations = ExportOperations(self)
+        
+        # Make the sprite_tree available at the top level
+        self.sprite_tree = self.structure_manager.sprite_tree
+        
+        # Signals
+        self.sprite_edited = pyqtSignal(QTreeWidgetItem)  # Emitted when sprite is edited
+        self.group_added = pyqtSignal(QTreeWidgetItem)    # Emitted when group is added
+
     def setup_tree(self):
-        """Initialize the sprite tree widget"""
-        self.main_window.sprite_tree = QTreeWidget()
-        self.main_window.sprite_tree.setHeaderLabels(["Groups"])
-        self.main_window.sprite_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.main_window.sprite_tree.customContextMenuRequested.connect(self._show_tree_context_menu)
-        self.main_window.sprite_tree.itemClicked.connect(self._on_tree_item_clicked)  # Connect to handle item selection
+        """Setup the sprite tree widget"""
+        self.structure_manager.setup_tree()
+        # Update the reference after setup
+        self.sprite_tree = self.structure_manager.sprite_tree
         
-        # Add keyboard delete support
-        self.main_window.sprite_tree.keyPressEvent = self._on_tree_key_press
+        # Connect signals
+        self.sprite_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.sprite_tree.customContextMenuRequested.connect(self._show_tree_context_menu)
+        self.sprite_tree.itemClicked.connect(self._on_tree_item_clicked)
+        self.sprite_tree.itemDoubleClicked.connect(self._on_tree_item_double_clicked)
+        self.sprite_tree.keyPressEvent = self._on_tree_key_press
+
+    # Delegate method calls to the appropriate modules
+    def _add_group(self, name=None):
+        return self.structure_manager._add_group(name)
+    
+    def _add_subgroup(self, parent):
+        return self.structure_manager._add_subgroup(parent)
+    
+    def _add_sprite_item_to_group(self, parent):
+        return self.structure_manager._add_sprite_item_to_group(parent)
+    
+    def _create_sprite_item(self, parent, x, y, width, height, pixmap=None):
+        return self.structure_manager._create_sprite_item(parent, x, y, width, height, pixmap)
+    
+    def _delete_item_with_confirmation(self, item):
+        self.structure_manager._delete_item_with_confirmation(item)
+    
+    def _delete_item(self, item):
+        self.structure_manager._delete_item(item)
+    
+    def _is_group_item(self, item):
+        return self.structure_manager._is_group_item(item)
+    
+    def _rename_item(self, item):
+        self.structure_manager._rename_item(item)
+    
+    def _update_child_sprite_names(self, group_item):
+        self.structure_manager._update_child_sprite_names(group_item)
+    
+    def _get_group_icon(self):
+        return self.structure_manager._get_group_icon()
+    
+    def _add_default_sprites_group(self, detected_sprites=None):
+        return self.structure_manager._add_default_sprites_group(detected_sprites)
+    
+    def _refresh_tree(self):
+        self.structure_manager._refresh_tree()
+    
+    def _extract_sprite_from_canvas(self, x, y, width, height):
+        return self.structure_manager._extract_sprite_from_canvas(x, y, width, height)
+    
+    def _find_sprite_rect_in_canvas(self, x, y, width, height):
+        return self.structure_manager._find_sprite_rect_in_canvas(x, y, width, height)
+    
+    def clear_tree(self):
+        self.structure_manager.clear_tree()
+    
+    def expand_all(self):
+        self.structure_manager.expand_all()
+    
+    def collapse_all(self):
+        self.structure_manager.collapse_all()
     
     def _show_tree_context_menu(self, position):
-        """Show context menu for the sprite tree."""
-        menu = QMenu()
+        self.context_menu._show_tree_context_menu(position)
+    
+    def _on_grid_cell_right_clicked(self, x, y, width, height):
+        self.context_menu._on_grid_cell_right_clicked(x, y, width, height)
+    
+    def _on_multi_grid_selection(self, selected_rects):
+        self.context_menu._on_multi_grid_selection(selected_rects)
+    
+    def _get_all_groups(self):
+        return self.sprite_operations._get_all_groups()
+    
+    def _add_sprite_to_group(self, group, x, y, width, height):
+        return self.sprite_operations._add_sprite_to_group(group, x, y, width, height)
+    
+    def _add_sprites_to_group(self, group, selected_rects):
+        self.sprite_operations._add_sprites_to_group(group, selected_rects)
+    
+    def _create_sprite_with_coords(self, x, y, width, height):
+        self.sprite_operations._create_sprite_with_coords(x, y, width, height)
+    
+    def _create_sprites_with_coords(self, selected_rects):
+        self.sprite_operations._create_sprites_with_coords(selected_rects)
+    
+    def _edit_sprite_at_coords(self, x, y, width, height):
+        self.sprite_operations._edit_sprite_at_coords(x, y, width, height)
+    
+    def _edit_sprite_item(self, item):
+        self.sprite_operations._edit_sprite_item(item)
+    
+    def _show_sprite_in_canvas(self, item):
+        self.sprite_operations._show_sprite_in_canvas(item)
+    
+    def _move_selected_sprites_to_group(self, target_group):
+        self.sprite_operations._move_selected_sprites_to_group(target_group)
+    
+    def _export_sprite(self, item):
+        self.export_operations._export_sprite(item)
+    
+    def _export_group(self, group_item):
+        self.export_operations._export_group(group_item)
+    
+    def _export_group_as_gif(self, group_item):
+        self.export_operations._export_group_as_gif(group_item)
+    
+    def _export_selected_sprites(self, selected_rects):
+        self.export_operations._export_selected_sprites(selected_rects)
+    
+    def _extract_and_save_sprite(self, x, y, width, height):
+        self.export_operations._extract_and_save_sprite(x, y, width, height)
+    
+    def _copy_sprite_to_clipboard(self, item):
+        self.export_operations._copy_sprite_to_clipboard(item)
+    
+    def _collect_sprite_items(self, item, result_list):
+        self.export_operations._collect_sprite_items(item, result_list)
+    
+    def _collect_sprite_pixmaps(self, item, result_list):
+        self.export_operations._collect_sprite_pixmaps(item, result_list)
+    
+    def _qimage_to_pil(self, qimage):
+        return self.export_operations._qimage_to_pil(qimage)
+    
+    def get_selected_sprite_items(self):
+        """Get all selected sprite items (non-groups)."""
+        selected_items = self.sprite_tree.selectedItems()
+        sprite_items = []
         
-        # Add actions based on selection
-        selected_items = self.main_window.sprite_tree.selectedItems()
-        if selected_items:
-            item = selected_items[0]
-            
-            # Check if the selected item is a group or a sprite
+        for item in selected_items:
+            if not self._is_group_item(item):
+                sprite_items.append(item)
+        
+        return sprite_items
+
+    def get_selected_group_items(self):
+        """Get all selected group items."""
+        selected_items = self.sprite_tree.selectedItems()
+        group_items = []
+        
+        for item in selected_items:
             if self._is_group_item(item):
-                # For groups, allow adding subgroups and sprite items
-                menu.addAction("Add Subgroup", lambda: self._add_subgroup(item))
-                menu.addAction("Add Sprite Item", lambda: self._add_sprite_item(item))
-                
-                # If we have selected sprites in canvas, allow moving them to this group
-                if hasattr(self.main_window.canvas, 'selected_cells') and len(self.main_window.canvas.selected_cells) > 0:
-                    menu.addAction("Move Selected Sprites to Group", lambda: self._move_selected_sprites_to_group(item))
-                
-                menu.addSeparator()
-                menu.addAction("Delete", lambda: self._delete_item_with_confirmation(item))
-            else:
-                # For sprite items, allow renaming and deleting
-                menu.addAction("Rename", lambda: self._rename_item(item))
-                menu.addAction("Delete", lambda: self._delete_item_with_confirmation(item))
-        else:
-            # No selection - add root level group
-            menu.addAction("Add Group", self._add_group)
+                group_items.append(item)
         
-        menu.exec(self.main_window.sprite_tree.viewport().mapToGlobal(position))
+        return group_items
 
-    def _rename_item(self, item):
-        """Rename the selected item."""
-        # Use the built-in editing capability of QTreeWidget
-        self.main_window.sprite_tree.editItem(item, 0)
+    def update_sprite_item(self, item, new_boundary):
+        """Update a sprite item with new boundary."""
+        if not item or self._is_group_item(item):
+            return
+        
+        # Update stored coordinates
+        item.setData(0, Qt.ItemDataRole.UserRole, 
+                    (new_boundary.x(), new_boundary.y(), 
+                     new_boundary.width(), new_boundary.height()))
+        
+        # Update size display
+        item.setText(1, f"{new_boundary.width()}×{new_boundary.height()}")
+        
+        # Emit signal
+        self.sprite_edited.emit(item)
 
-    def _move_selected_sprites_to_group(self, target_group, coords_list=None):
-        """Move selected sprites from canvas to the target group."""
-        # Use coords_list if provided, otherwise use canvas selections
-        coords_to_process = coords_list if coords_list is not None else [
-            (rect.x(), rect.y(), rect.width(), rect.height()) 
-            for rect in self.main_window.canvas.selected_cells
-        ]
+    # Tree event handlers
+    def _on_tree_item_clicked(self, item, column):
+        """Handle when a tree item is clicked"""
+        # Update properties panel in main window
+        if hasattr(self.main_window, '_on_tree_item_clicked'):
+            self.main_window._on_tree_item_clicked(item, column)
         
-        # Process each coordinate tuple
-        for x, y, width, height in coords_to_process:
-            # Extract the sprite from the canvas
-            sprite_pixmap = self.main_window._extract_sprite_pixmap(x, y, width, height)
-            
-            # Create a sprite item with details and thumbnail
-            sprite_item = self._add_sprite_item(target_group, x, y, width, height, sprite_pixmap)
-            
-            # Store coordinates in the item
-            sprite_item.setData(0, Qt.ItemDataRole.UserRole, (x, y, width, height))
-            
-            if sprite_pixmap:
-                sprite_item.set_thumbnail(sprite_pixmap)
-        
-        # Clear the canvas selections if we were using them
-        if coords_list is None:
-            self.main_window.canvas.selected_cells = []
-            self.main_window.canvas.update_display()
-        
-        # Expand the target group to show the new sprites
-        self.main_window.sprite_tree.expandItem(target_group)
+        # If it's a sprite item, update the canvas selection
+        if not self._is_group_item(item):
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if isinstance(data, tuple) and len(data) == 4:
+                x, y, w, h = data
+                # Select this sprite in canvas (if in auto-detect mode)
+                if hasattr(self.main_window.canvas, 'in_autodetect_mode') and self.main_window.canvas.in_autodetect_mode:
+                    self.main_window.canvas.selected_cells = []
+                    self.main_window.canvas.selected_cells.append(self._find_sprite_rect_in_canvas(x, y, w, h))
+                    self.main_window.canvas.update_display()
 
-    def _add_group(self):
-        """Add a new root-level group to the tree."""
-        item = QTreeWidgetItem(self.main_window.sprite_tree)
-        item.setText(0, "New Group")
-        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-        self.main_window.sprite_tree.expandItem(item)
-        # Initialize counter for this group using the item's unique text and memory address
-        item_id = f"{item.text(0)}_{id(item)}"
-        self.group_counters = getattr(self, 'group_counters', {})
-        self.group_counters[item_id] = 1
-
-    def _add_subgroup(self, parent):
-        """Add a subgroup under the selected parent."""
-        item = QTreeWidgetItem(parent)
-        item.setText(0, "New Subgroup")
-        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-        self.main_window.sprite_tree.expandItem(parent)
-        # Initialize counter for this group using the item's unique text and memory address
-        item_id = f"{item.text(0)}_{id(item)}"
-        self.group_counters = getattr(self, 'group_counters', {})
-        self.group_counters[item_id] = 1
-
-    def _add_sprite_item(self, parent, x=None, y=None, width=None, height=None, pixmap=None):
-        """Add a sprite item under the selected parent."""
-        print(f"DEBUG: _add_sprite_item called for parent '{parent.text(0)}' with ({x}, {y}, {width}x{height})")
-        # Get or initialize counter for this parent group
-        parent_id = f"{parent.text(0)}_{id(parent)}"
-        self.group_counters = getattr(self, 'group_counters', {})
-        if parent_id not in self.group_counters:
-            # Initialize counter for this parent group
-            self.group_counters[parent_id] = 1
-        
-        # Create the sprite name with parent group name and counter
-        parent_name = parent.text(0)
-        sprite_name = f"{parent_name} {self.group_counters[parent_id]}"
-        self.group_counters[parent_id] += 1  # Increment for next sprite
-        
-        item = ThumbnailTreeWidgetItem(parent, sprite_name, pixmap)
-        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-        if pixmap:
-            item.set_thumbnail(pixmap)
-        return item
+    def _on_tree_item_double_clicked(self, item, column):
+        """Handle double click on tree item."""
+        if not self._is_group_item(item):
+            self._edit_sprite_item(item)
 
     def _on_tree_key_press(self, event):
         """Handle key press events in the tree widget."""
         if event.key() == Qt.Key.Key_Delete:
-            selected_items = self.main_window.sprite_tree.selectedItems()
+            selected_items = self.sprite_tree.selectedItems()
             if selected_items:
                 item = selected_items[0]
                 self._delete_item_with_confirmation(item)
+        elif event.key() == Qt.Key.Key_F2:
+            selected_items = self.sprite_tree.selectedItems()
+            if selected_items:
+                item = selected_items[0]
+                self._rename_item(item)
+        elif event.modifiers() == Qt.KeyboardModifier.ControlModifier and event.key() == Qt.Key.Key_E:
+            selected_items = self.sprite_tree.selectedItems()
+            if selected_items and not self._is_group_item(selected_items[0]):
+                self._edit_sprite_item(selected_items[0])
         else:
             # Call the original keyPressEvent for other keys
-            QTreeWidget.keyPressEvent(self.main_window.sprite_tree, event)
-
-    def _delete_item_with_confirmation(self, item):
-        """Delete the selected item from the tree with confirmation for groups."""
-        # Check if it's a group (has children or is a top-level item)
-        is_group = self._is_group_item(item)
-        
-        if is_group and item.childCount() > 0:
-            # Show confirmation dialog for groups with children
-            reply = QMessageBox.question(
-                self.main_window,
-                "Confirm Delete",
-                f"Are you sure you want to delete the group '{item.text(0)}' and all its contents?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
-            
-            if reply == QMessageBox.StandardButton.No:
-                return
-        elif is_group:
-            # Show confirmation dialog for groups without children
-            reply = QMessageBox.question(
-                self.main_window,
-                "Confirm Delete",
-                f"Are you sure you want to delete the group '{item.text(0)}'?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
-            
-            if reply == QMessageBox.StandardButton.No:
-                return
-        
-        # Perform the actual deletion
-        self._delete_item(item)
-
-    def _delete_item(self, item):
-        """Delete the selected item from the tree."""
-        parent = item.parent()
-        if parent:
-            parent.removeChild(item)
-            # Also remove any counter associated with this item
-            item_id = f"{item.text(0)}_{id(item)}"
-            if hasattr(self, 'group_counters') and item_id in self.group_counters:
-                del self.group_counters[item_id]
-        else:
-            # Root item
-            index = self.main_window.sprite_tree.indexOfTopLevelItem(item)
-            if index >= 0:
-                self.main_window.sprite_tree.takeTopLevelItem(index)
-                # Also remove any counter associated with this item
-                item_id = f"{item.text(0)}_{id(item)}"
-                if hasattr(self, 'group_counters') and item_id in self.group_counters:
-                    del self.group_counters[item_id]
-
-    def _on_tree_item_clicked(self, item, column):
-        """Handle when a tree item is clicked"""
-        print(f"DEBUG: _on_tree_item_clicked called for item '{item.text(0)}'")
-        # Check if the clicked item is a group (has children or is a top-level item)
-        if item.childCount() > 0 or item.parent() is None:
-            # This is a group - collect all sprite items under it for animation
-            sprite_pixmaps = []
-            self._collect_sprite_pixmaps(item, sprite_pixmaps)
-            
-            # Set the collected sprites to the animation preview
-            self.main_window.animation_preview.set_sprites(sprite_pixmaps)
-        else:
-            # This is a sprite item - reset the animation preview
-            self.main_window.animation_preview.set_sprites([])
-            
-            # Extract coordinates from the text if it contains coordinate info
-            text = item.text(0)
-            # If the item was created from grid selection, it might have coordinates in its data
-            if hasattr(item, 'data') and item.data(0, Qt.ItemDataRole.UserRole) is not None:
-                coords = item.data(0, Qt.ItemDataRole.UserRole)
-                if isinstance(coords, tuple) and len(coords) == 4:
-                    x, y, w, h = coords
-                    self.main_window.x_label.setText(str(x))
-                    self.main_window.y_label.setText(str(y))
-                    self.main_window.width_label.setText(str(w))
-                    self.main_window.height_label.setText(str(h))
-                    return
-            
-            # Reset if we can't extract coordinates
-            self.main_window._reset_properties_display()
-
-    def _collect_sprite_pixmaps(self, item, sprite_list):
-        """Recursively collect all sprite pixmaps from a tree item and its children"""
-        # Check if this is a ThumbnailTreeWidgetItem with an original pixmap
-        if hasattr(item, 'get_original_pixmap'):
-            original_pixmap = item.get_original_pixmap()
-            if original_pixmap and not original_pixmap.isNull():
-                sprite_list.append(original_pixmap)
-        
-        # Recursively process all children
-        for i in range(item.childCount()):
-            child = item.child(i)
-            self._collect_sprite_pixmaps(child, sprite_list)
-
-    def _reset_properties_display(self):
-        """Reset the properties display"""
-        self.main_window.x_label.setText("-")
-        self.main_window.y_label.setText("-")
-        self.main_window.width_label.setText("-")
-        self.main_window.height_label.setText("-")
-
-    def _is_group_item(self, item):
-        """Check if an item is a group (not a sprite)"""
-        text = item.text(0)
-        print(f"DEBUG: _is_group_item checking: {text}")
-        
-        # Check if this item is a sprite by checking if it follows the naming pattern:
-        # parent_name + space + number (e.g., "Sprite Sheet 1")
-        parent_item = item.parent()
-        if parent_item:
-            parent_text = parent_item.text(0)
-            # Check if text starts with parent name followed by a space and number
-            if text.startswith(parent_text + " "):
-                # Verify that after the parent name and space, there's a number
-                remaining_text = text[len(parent_text)+1:]
-                if remaining_text and remaining_text[0].isdigit():
-                    print(f"DEBUG: Item {text} is a sprite (matches parent + number pattern)")
-                    return False
-        
-        # If it's not a sprite, it's a group
-        print(f"DEBUG: Item {text} is a group")
-        return True
-
-    def _show_group_selection_dialog(self, x, y, width, height):
-        """Show a dialog with tree view to select a group for the sprite."""
-        print(f"DEBUG: _show_group_selection_dialog called with ({x}, {y}, {width}x{height})")
-        dialog = QDialog(self.main_window)
-        dialog.setWindowTitle("Select Group for Sprite")
-        dialog.resize(300, 400)
-        
-        layout = QVBoxLayout(dialog)
-        
-        # Create a tree widget for group selection
-        group_tree = QTreeWidget()
-        group_tree.setHeaderLabel("Groups")
-        
-        # Copy the structure from the main sprite tree
-        self._copy_tree_structure(self.main_window.sprite_tree, group_tree)
-        
-        layout.addWidget(group_tree)
-        
-        # Add buttons
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.accepted.connect(lambda: self._add_sprite_to_selected_group(group_tree, x, y, width, height, dialog))
-        buttons.rejected.connect(dialog.close)  # Cancel button
-        
-        layout.addWidget(buttons)
-        
-        dialog.exec()
-
-    def _copy_tree_structure(self, source_tree, target_tree):
-        """Copy the tree structure from source to target tree, excluding sprite items."""
-        print("DEBUG: _copy_tree_structure called")
-        # Clear target tree
-        target_tree.clear()
-        
-        # Copy all items recursively, excluding sprite items
-        for i in range(source_tree.topLevelItemCount()):
-            item = source_tree.topLevelItem(i)
-            # Only copy groups/subgroups, not sprite items
-            if self._is_group_item(item):
-                print(f"DEBUG: Copying top level item: {item.text(0)}")
-                cloned_item = item.clone()
-                # Clone only the group structure, excluding sprite items
-                self._clone_group_structure(item, cloned_item)
-                target_tree.addTopLevelItem(cloned_item)
-            else:
-                print(f"DEBUG: Skipping top level item (not a group): {item.text(0)}")
-
-    def _clone_group_structure(self, source_item, target_item):
-        """Recursively clone only group items, excluding sprite items."""
-        print(f"DEBUG: _clone_group_structure called for source: {source_item.text(0)}")
-        for i in range(source_item.childCount()):
-            child = source_item.child(i)
-            # Only clone if it's a group item, not a sprite
-            if self._is_group_item(child):
-                print(f"DEBUG: Cloning child: {child.text(0)}")
-                cloned_child = child.clone()
-                target_item.addChild(cloned_child)
-                # Recursively clone the group structure
-                self._clone_group_structure(child, cloned_child)
-            else:
-                print(f"DEBUG: Skipping child (not a group): {child.text(0)}")
-
-    def _add_sprite_to_selected_group(self, group_tree, x, y, width, height, dialog):
-        """Add sprite to the selected group in the group selection dialog."""
-        print(f"DEBUG: _add_sprite_to_selected_group called with ({x}, {y}, {width}x{height})")
-        selected_items = group_tree.selectedItems()
-        if selected_items:
-            # Find the corresponding item in the main tree
-            selected_group = selected_items[0]
-            main_tree_item = self._find_main_tree_item(selected_group, self.main_window.sprite_tree)
-            if main_tree_item:
-                # Verify that the selected item is actually a group (not a sprite)
-                if self._is_group_item(main_tree_item):
-                    # Extract the sprite from the canvas
-                    sprite_pixmap = self.main_window._extract_sprite_pixmap(x, y, width, height)
-                    
-                    # Create a sprite item with details and thumbnail
-                    sprite_item = self._add_sprite_item(main_tree_item, x, y, width, height, sprite_pixmap)
-                    
-                    # Store coordinates in the item
-                    sprite_item.setData(0, Qt.ItemDataRole.UserRole, (x, y, width, height))
-                    
-                    if sprite_pixmap:
-                        sprite_item.set_thumbnail(sprite_pixmap)
-                    
-                    # Expand the group to show the new sprite
-                    self.main_window.sprite_tree.expandItem(main_tree_item)
-                    
-                    # Close the dialog
-                    dialog.accept()
-                else:
-                    print(f"DEBUG: Selected item {main_tree_item.text(0)} is not a group, ignoring")
-                    dialog.close()
-        else:
-            dialog.close()
-
-    def _find_main_tree_item(self, source_item, main_tree):
-        """Find the corresponding item in the main tree based on text and hierarchy."""
-        # Get the path from root to the source item
-        path = []
-        current = source_item
-        while current:
-            path.insert(0, current.text(0))
-            current = current.parent()
-        
-        # Navigate the main tree using the path
-        current_main_item = None
-        for i in range(main_tree.topLevelItemCount()):
-            if main_tree.topLevelItem(i).text(0) == path[0]:
-                current_main_item = main_tree.topLevelItem(i)
-                break
-        
-        if not current_main_item and len(path) == 1:  # Looking for root item
-            for i in range(main_tree.topLevelItemCount()):
-                if main_tree.topLevelItem(i).text(0) == path[0]:
-                    return main_tree.topLevelItem(i)
-        
-        # Navigate down the tree to find the matching item
-        for i in range(1, len(path)):
-            found = False
-            for j in range(current_main_item.childCount()):
-                child = current_main_item.child(j)
-                if child.text(0) == path[i]:
-                    current_main_item = child
-                    found = True
-                    break
-            if not found:
-                return None
-        
-        return current_main_item
-
-    def _add_default_sprites_group(self, detected_sprites=None):
-        """Add a default group with individual sprite items when an image is loaded or sprites are detected."""
-        # Clear previous items
-        self.main_window.sprite_tree.clear()
-        
-        # Add a default group
-        group_item = QTreeWidgetItem(self.main_window.sprite_tree)
-        group_item.setText(0, "Sprite Sheet")
-        group_item.setFlags(group_item.flags() | Qt.ItemFlag.ItemIsEditable)
-        
-        # Initialize counter for this group using the item's unique text and memory address
-        group_item_id = f"{group_item.text(0)}_{id(group_item)}"
-        self.group_counters = getattr(self, 'group_counters', {})
-        self.group_counters[group_item_id] = 1
-        
-        # If detected sprites are provided, add them to the group
-        if detected_sprites:
-            for rect in detected_sprites:
-                x, y, width, height = rect.x(), rect.y(), rect.width(), rect.height()
-                
-                # Extract the sprite from the canvas
-                sprite_pixmap = self.main_window._extract_sprite_pixmap(x, y, width, height)
-                
-                # Create a sprite item with details and thumbnail
-                sprite_item = self._add_sprite_item(group_item, x, y, width, height, sprite_pixmap)
-                
-                # Store coordinates in the item
-                sprite_item.setData(0, Qt.ItemDataRole.UserRole, (x, y, width, height))
-                
-                if sprite_pixmap:
-                    sprite_item.set_thumbnail(sprite_pixmap)
-        
-        # Expand the group to show items
-        self.main_window.sprite_tree.expandItem(group_item)
-
-    def _on_multi_grid_selection(self, coords_list):
-        """Handle multi-grid selection right-click."""
-        print(f"DEBUG: Multi-grid selection with {len(coords_list)} sprites selected")
-        
-        # Show a context menu when right-clicking on multi-selected sprites
-        menu = QMenu()
-        menu.addAction("Move Selected Sprites to Group", lambda: self._show_group_selection_for_multi_sprites(coords_list))
-        menu.exec(QCursor.pos())
-
-    def _on_grid_cell_right_clicked(self, x, y, width, height):
-        """Handle grid cell right-click and show group selection dialog."""
-        print(f"DEBUG: _on_grid_cell_right_clicked called with ({x}, {y}, {width}x{height})")
-        # Show dialog to select a group for the sprite
-        self._show_group_selection_dialog(x, y, width, height)
-        
-    def _show_group_selection_for_multi_sprites(self, coords_list):
-        """Show group selection dialog for multiple sprites."""
-        dialog = QDialog(self.main_window)
-        dialog.setWindowTitle("Select Group for Sprites")
-        dialog.resize(300, 400)
-        
-        layout = QVBoxLayout(dialog)
-        
-        # Create a tree widget for group selection
-        group_tree = QTreeWidget()
-        group_tree.setHeaderLabel("Groups")
-        
-        # Copy the structure from the main sprite tree
-        self._copy_tree_structure(self.main_window.sprite_tree, group_tree)
-        
-        layout.addWidget(group_tree)
-        
-        # Add buttons
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.accepted.connect(lambda: self._add_multi_sprites_to_selected_group(group_tree, coords_list, dialog))
-        buttons.rejected.connect(dialog.close)  # Cancel button
-        
-        layout.addWidget(buttons)
-        
-        dialog.exec()
-
-    def _add_multi_sprites_to_selected_group(self, group_tree, coords_list, dialog):
-        """Add multiple sprites to the selected group."""
-        selected_items = group_tree.selectedItems()
-        if selected_items:
-            # Find the corresponding item in the main tree
-            selected_group = selected_items[0]
-            main_tree_item = self._find_main_tree_item(selected_group, self.main_window.sprite_tree)
-            if main_tree_item and self._is_group_item(main_tree_item):
-                # Process each coordinate tuple
-                for x, y, width, height in coords_list:
-                    # Extract the sprite from the canvas
-                    sprite_pixmap = self.main_window._extract_sprite_pixmap(x, y, width, height)
-                    
-                    # Create a sprite item with details and thumbnail
-                    sprite_item = self._add_sprite_item(main_tree_item, x, y, width, height, sprite_pixmap)
-                    
-                    # Store coordinates in the item
-                    sprite_item.setData(0, Qt.ItemDataRole.UserRole, (x, y, width, height))
-                    
-                    if sprite_pixmap:
-                        sprite_item.set_thumbnail(sprite_pixmap)
-                
-                # Expand the group to show the new sprites
-                self.main_window.sprite_tree.expandItem(main_tree_item)
-                
-                # Clear the canvas selections
-                self.main_window.canvas.selected_cells = []
-                self.main_window.canvas.update_display()
-                
-                # Close the dialog
-                dialog.accept()
-        else:
-            dialog.close()
+            QTreeWidget.keyPressEvent(self.sprite_tree, event)
