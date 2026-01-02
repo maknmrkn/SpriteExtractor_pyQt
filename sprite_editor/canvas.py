@@ -114,12 +114,15 @@ class Canvas(QScrollArea):
             # Update display to show highlight
             self.update_display()
             
-            # Emit signal with cell coordinates for both clicks
-            self.grid_cell_clicked.emit(int(cell_x), int(cell_y), 
-                                       self.grid_width, self.grid_height)
+            # Only emit grid_cell_clicked for left clicks (for highlighting)
+            if event.button() == Qt.MouseButton.LeftButton:
+                print(f"DEBUG: Emitting grid_cell_clicked for left click at ({int(cell_x)}, {int(cell_y)}, {self.grid_width}x{self.grid_height})")
+                self.grid_cell_clicked.emit(int(cell_x), int(cell_y), 
+                                           self.grid_width, self.grid_height)
             
-            # Only show context menu for right-click
-            if event.button() == Qt.MouseButton.RightButton:
+            # Only emit right-click signal for right clicks (for context menu)
+            elif event.button() == Qt.MouseButton.RightButton:
+                print(f"DEBUG: Emitting grid_cell_right_clicked for right click at ({int(cell_x)}, {int(cell_y)}, {self.grid_width}x{self.grid_height})")
                 # Emit right-click signal to show group selection dialog
                 self.grid_cell_right_clicked.emit(int(cell_x), int(cell_y), 
                                                  self.grid_width, self.grid_height)

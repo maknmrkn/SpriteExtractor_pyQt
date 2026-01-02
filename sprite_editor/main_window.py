@@ -336,10 +336,17 @@ class MainWindow(QMainWindow):
         selected_items = self.sprite_tree.selectedItems()
         if selected_items:
             item = selected_items[0]
-            menu.addAction("Add Subgroup", lambda: self._add_subgroup(item))
-            menu.addAction("Add Sprite Item", lambda: self._add_sprite_item(item))
-            menu.addSeparator()
-            menu.addAction("Delete", lambda: self._delete_item(item))
+            
+            # Check if the selected item is a group or a sprite
+            if self._is_group_item(item):
+                # For groups, allow adding subgroups and sprite items
+                menu.addAction("Add Subgroup", lambda: self._add_subgroup(item))
+                menu.addAction("Add Sprite Item", lambda: self._add_sprite_item(item))
+                menu.addSeparator()
+                menu.addAction("Delete", lambda: self._delete_item(item))
+            else:
+                # For sprite items, only allow deleting
+                menu.addAction("Delete", lambda: self._delete_item(item))
         else:
             # No selection - add root level group
             menu.addAction("Add Group", self._add_group)
@@ -370,6 +377,7 @@ class MainWindow(QMainWindow):
 
     def _add_sprite_item(self, parent, x=None, y=None, width=None, height=None, pixmap=None):
         """Add a sprite item under the selected parent."""
+        print(f"DEBUG: _add_sprite_item called for parent '{parent.text(0)}' with ({x}, {y}, {width}x{height})")
         # Get or initialize counter for this parent group
         parent_id = f"{parent.text(0)}_{id(parent)}"
         self.group_counters = getattr(self, 'group_counters', {})
@@ -409,12 +417,14 @@ class MainWindow(QMainWindow):
 
     def _on_grid_cell_clicked(self, x, y, width, height):
         """Handle grid cell click for highlighting only."""
+        print(f"DEBUG: _on_grid_cell_clicked called with ({x}, {y}, {width}x{height})")
         # This method is now just for handling the highlight
         # The actual logic is handled in Canvas class
         pass
 
     def _on_tree_item_clicked(self, item, column):
         """Handle when a tree item is clicked"""
+        print(f"DEBUG: _on_tree_item_clicked called for item '{item.text(0)}'")
         # Check if the clicked item is a group (has children or is a top-level item)
         if item.childCount() > 0 or item.parent() is None:
             # This is a group - collect all sprite items under it for animation
@@ -471,11 +481,13 @@ class MainWindow(QMainWindow):
 
     def _on_grid_cell_right_clicked(self, x, y, width, height):
         """Handle grid cell right-click and show group selection dialog."""
+        print(f"DEBUG: _on_grid_cell_right_clicked called with ({x}, {y}, {width}x{height})")
         # Show dialog to select a group for the sprite
         self._show_group_selection_dialog(x, y, width, height)
 
     def _show_group_selection_dialog(self, x, y, width, height):
         """Show a dialog with tree view to select a group for the sprite."""
+        print(f"DEBUG: _show_group_selection_dialog called with ({x}, {y}, {width}x{height})")
         dialog = QDialog(self)
         dialog.setWindowTitle("Select Group for Sprite")
         dialog.resize(300, 400)
@@ -488,9 +500,6 @@ class MainWindow(QMainWindow):
         
         # Copy the structure from the main sprite tree
         self._copy_tree_structure(self.sprite_tree, group_tree)
-        
-        # Connect to item double click
-        group_tree.itemDoubleClicked.connect(lambda item, column: self._add_sprite_to_group(item, x, y, width, height, dialog))
         
         layout.addWidget(group_tree)
         
@@ -505,6 +514,7 @@ class MainWindow(QMainWindow):
 
     def _copy_tree_structure(self, source_tree, target_tree):
         """Copy the tree structure from source to target tree, excluding sprite items."""
+        print("DEBUG: _copy_tree_structure called")
         # Clear target tree
         target_tree.clear()
         
@@ -513,29 +523,54 @@ class MainWindow(QMainWindow):
             item = source_tree.topLevelItem(i)
             # Only copy groups/subgroups, not sprite items
             if self._is_group_item(item):
+                print(f"DEBUG: Copying top level item: {item.text(0)}")
                 cloned_item = item.clone()
                 # Clone only the group structure, excluding sprite items
                 self._clone_group_structure(item, cloned_item)
                 target_tree.addTopLevelItem(cloned_item)
-
-    def _is_group_item(self, item):
-        """Check if an item is a group (doesn't start with 'Sprite (')"""
-        text = item.text(0)
-        return not text.startswith("Sprite (")
+            else:
+                print(f"DEBUG: Skipping top level item (not a group): {item.text(0)}")
 
     def _clone_group_structure(self, source_item, target_item):
         """Recursively clone only group items, excluding sprite items."""
+        print(f"DEBUG: _clone_group_structure called for source: {source_item.text(0)}")
         for i in range(source_item.childCount()):
             child = source_item.child(i)
             # Only clone if it's a group item, not a sprite
             if self._is_group_item(child):
+                print(f"DEBUG: Cloning child: {child.text(0)}")
                 cloned_child = child.clone()
                 target_item.addChild(cloned_child)
                 # Recursively clone the group structure
                 self._clone_group_structure(child, cloned_child)
+            else:
+                print(f"DEBUG: Skipping child (not a group): {child.text(0)}")
+
+    def _is_group_item(self, item):
+        """Check if an item is a group (not a sprite)"""
+        text = item.text(0)
+        print(f"DEBUG: _is_group_item checking: {text}")
+        
+        # Check if this item is a sprite by checking if it follows the naming pattern:
+        # parent_name + space + number (e.g., "Sprite Sheet 1")
+        parent_item = item.parent()
+        if parent_item:
+            parent_text = parent_item.text(0)
+            # Check if text starts with parent name followed by a space and number
+            if text.startswith(parent_text + " "):
+                # Verify that after the parent name and space, there's a number
+                remaining_text = text[len(parent_text)+1:]
+                if remaining_text and remaining_text[0].isdigit():
+                    print(f"DEBUG: Item {text} is a sprite (matches parent + number pattern)")
+                    return False
+        
+        # If it's not a sprite, it's a group
+        print(f"DEBUG: Item {text} is a group")
+        return True
 
     def _add_sprite_to_group(self, group_item, x, y, width, height, dialog):
         """Add a sprite item to the selected group with thumbnail."""
+        print(f"DEBUG: _add_sprite_to_group called for group '{group_item.text(0)}' with ({x}, {y}, {width}x{height})")
         # Extract the sprite from the canvas
         sprite_pixmap = self._extract_sprite_pixmap(x, y, width, height)
         
@@ -556,29 +591,35 @@ class MainWindow(QMainWindow):
 
     def _add_sprite_to_selected_group(self, group_tree, x, y, width, height, dialog):
         """Add sprite to the selected group in the group selection dialog."""
+        print(f"DEBUG: _add_sprite_to_selected_group called with ({x}, {y}, {width}x{height})")
         selected_items = group_tree.selectedItems()
         if selected_items:
             # Find the corresponding item in the main tree
             selected_group = selected_items[0]
             main_tree_item = self._find_main_tree_item(selected_group, self.sprite_tree)
             if main_tree_item:
-                # Extract the sprite from the canvas
-                sprite_pixmap = self._extract_sprite_pixmap(x, y, width, height)
-                
-                # Create a sprite item with details and thumbnail
-                sprite_item = self._add_sprite_item(main_tree_item, x, y, width, height, sprite_pixmap)
-                
-                # Store coordinates in the item
-                sprite_item.setData(0, Qt.ItemDataRole.UserRole, (x, y, width, height))
-                
-                if sprite_pixmap:
-                    sprite_item.set_thumbnail(sprite_pixmap)
-                
-                # Expand the group to show the new sprite
-                self.sprite_tree.expandItem(main_tree_item)
-                
-                # Close the dialog
-                dialog.accept()
+                # Verify that the selected item is actually a group (not a sprite)
+                if self._is_group_item(main_tree_item):
+                    # Extract the sprite from the canvas
+                    sprite_pixmap = self._extract_sprite_pixmap(x, y, width, height)
+                    
+                    # Create a sprite item with details and thumbnail
+                    sprite_item = self._add_sprite_item(main_tree_item, x, y, width, height, sprite_pixmap)
+                    
+                    # Store coordinates in the item
+                    sprite_item.setData(0, Qt.ItemDataRole.UserRole, (x, y, width, height))
+                    
+                    if sprite_pixmap:
+                        sprite_item.set_thumbnail(sprite_pixmap)
+                    
+                    # Expand the group to show the new sprite
+                    self.sprite_tree.expandItem(main_tree_item)
+                    
+                    # Close the dialog
+                    dialog.accept()
+                else:
+                    print(f"DEBUG: Selected item {main_tree_item.text(0)} is not a group, ignoring")
+                    dialog.close()
         else:
             dialog.close()
 
