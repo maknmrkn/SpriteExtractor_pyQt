@@ -8,6 +8,7 @@ from .animation_preview import AnimationPreviewWidget
 from .tree_manager import TreeManager
 from .ui_utils import UIUtils
 from .tree_item import ThumbnailTreeWidgetItem
+from .sprite_detector import SpriteDetector
 
 
 class MainWindow(QMainWindow):
@@ -73,6 +74,9 @@ class MainWindow(QMainWindow):
         
         main_layout.addWidget(splitter)
 
+        # Initialize sprite detector
+        self.sprite_detector = SpriteDetector()
+
         # Connect to the grid cell clicked signal (for highlighting)
         self.canvas.grid_cell_clicked.connect(self._on_grid_cell_clicked)
         # Connect to the grid cell right-clicked signal (for moving to group)
@@ -113,7 +117,7 @@ class MainWindow(QMainWindow):
         # Edit Menu
         edit_menu = menu_bar.addMenu("&Edit")
         extract_action = edit_menu.addAction("Auto-detect Frames")
-        # TODO: Connect to frame detection logic
+        extract_action.triggered.connect(self._auto_detect_frames)
 
     def _create_grid_toolbar(self):
         toolbar = QToolBar("Grid Settings")
@@ -534,6 +538,41 @@ class MainWindow(QMainWindow):
     def _on_spacing_y_changed(self, value):
         self.canvas.spacing_y = value
         self.canvas.update_display()
+
+    def _auto_detect_frames(self):
+        """Automatically detect frames in the loaded sprite sheet."""
+        if not self.canvas.pixmap or self.canvas.pixmap.isNull():
+            self.statusBar().showMessage("No image loaded to detect frames from.")
+            return
+
+        # Disable grid while detecting sprites
+        self.show_grid_toggle.setChecked(False)
+        self.canvas.show_grid = False
+        self.canvas.update_display()
+
+        # Save the current pixmap path to detect sprites
+        if hasattr(self.canvas, 'current_path') and self.canvas.current_path:
+            detected_sprites = self.sprite_detector.detect_sprites(self.canvas.current_path)
+            
+            if detected_sprites:
+                # Clear any existing selections
+                self.canvas.selected_cells = []
+                
+                # Add detected sprites to the canvas
+                for rect in detected_sprites:
+                    self.canvas.selected_cells.append(rect)
+                
+                # Update canvas display
+                self.canvas.update_display()
+                
+                # Add a default group with detected sprites
+                self.tree_manager._add_default_sprites_group(detected_sprites)
+                
+                self.statusBar().showMessage(f"Auto-detected {len(detected_sprites)} sprites.")
+            else:
+                self.statusBar().showMessage("No sprites detected in the image.")
+        else:
+            self.statusBar().showMessage("Could not detect sprites: image path not available.")
 
     def open_file(self):
         """Open a file dialog to select an image and load it into the canvas."""

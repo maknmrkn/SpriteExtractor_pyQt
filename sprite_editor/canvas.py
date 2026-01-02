@@ -25,6 +25,7 @@ class Canvas(QScrollArea):
         
         self.pixmap = QPixmap()
         self.scale_factor = 1.0
+        self.current_path = None  # Store the current image path
 
         # Grid settings - now with separate X and Y
         self.show_grid = False
@@ -50,6 +51,7 @@ class Canvas(QScrollArea):
         """Load an image from file path."""
         self.pixmap = QPixmap(image_path)
         if not self.pixmap.isNull():
+            self.current_path = image_path  # Store the path for sprite detection
             self.update_display()
             return True
         return False

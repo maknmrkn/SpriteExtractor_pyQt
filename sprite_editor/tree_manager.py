@@ -399,8 +399,8 @@ class TreeManager:
         
         return current_main_item
 
-    def _add_default_sprites_group(self):
-        """Add a default group with individual sprite items when an image is loaded."""
+    def _add_default_sprites_group(self, detected_sprites=None):
+        """Add a default group with individual sprite items when an image is loaded or sprites are detected."""
         # Clear previous items
         self.main_window.sprite_tree.clear()
         
@@ -414,7 +414,24 @@ class TreeManager:
         self.group_counters = getattr(self, 'group_counters', {})
         self.group_counters[group_item_id] = 1
         
-        # Do not add default sprite items, just the group
+        # If detected sprites are provided, add them to the group
+        if detected_sprites:
+            for rect in detected_sprites:
+                x, y, width, height = rect.x(), rect.y(), rect.width(), rect.height()
+                
+                # Extract the sprite from the canvas
+                sprite_pixmap = self.main_window._extract_sprite_pixmap(x, y, width, height)
+                
+                # Create a sprite item with details and thumbnail
+                sprite_item = self._add_sprite_item(group_item, x, y, width, height, sprite_pixmap)
+                
+                # Store coordinates in the item
+                sprite_item.setData(0, Qt.ItemDataRole.UserRole, (x, y, width, height))
+                
+                if sprite_pixmap:
+                    sprite_item.set_thumbnail(sprite_pixmap)
+        
+        # Expand the group to show items
         self.main_window.sprite_tree.expandItem(group_item)
 
     def _on_multi_grid_selection(self, coords_list):
