@@ -35,7 +35,7 @@ class SpriteDetector(QObject):
         worker.signals.error.connect(self._on_detection_error)
         self.thread_pool.start(worker)
 
-    def _detect_sprites_impl(self, image_path, min_width=8, min_height=8):
+    def _detect_sprites_impl(self, image_path, min_width=8, min_height=8, progress_callback=None):
         """
         Internal implementation of sprite detection that runs in a background thread.
         """

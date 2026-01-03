@@ -98,7 +98,7 @@ class ExportOperations:
         worker.signals.error.connect(self._export_group_error)
         self.thread_pool.start(worker)
 
-    def _export_group_impl(self, group_item, dir_path):
+    def _export_group_impl(self, group_item, dir_path, progress_callback=None):
         """
         Implementation of group export that runs in a background thread.
         """
@@ -189,7 +189,7 @@ class ExportOperations:
         worker.signals.error.connect(self._export_gif_error)
         self.thread_pool.start(worker)
 
-    def _export_group_as_gif_impl(self, group_item, path):
+    def _export_group_as_gif_impl(self, group_item, path, progress_callback=None):
         """
         Implementation of GIF export that runs in a background thread.
         """
@@ -279,7 +279,7 @@ class ExportOperations:
         worker.signals.error.connect(self._export_selected_error)
         self.thread_pool.start(worker)
 
-    def _export_selected_sprites_impl(self, selected_rects, dir_path):
+    def _export_selected_sprites_impl(self, selected_rects, dir_path, progress_callback=None):
         """
         Implementation of selected sprites export that runs in a background thread.
         """
@@ -326,7 +326,7 @@ class ExportOperations:
         
         Parameters:
             x (int): X coordinate of the top-left corner of the sprite on the canvas.
-            y (int): Y coordinate of the top-left corner of the sprite on the canvas.
+            y (int): Y coordinate of the top-left corner of the canvas.
             width (int): Width of the sprite to extract.
             height (int): Height of the sprite to extract.
         """
