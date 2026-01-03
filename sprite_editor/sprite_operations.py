@@ -4,16 +4,33 @@ from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
 class SpriteOperations:
     def __init__(self, tree_manager):
+        """
+        Initialize the SpriteOperations instance with a tree manager and cache its main window.
+        
+        Parameters:
+            tree_manager: Object responsible for managing the sprite tree and providing access to the application's main window and tree-related helper methods.
+        """
         self.tree_manager = tree_manager
         self.main_window = tree_manager.main_window
         self.current_editing_item = None
 
     @property
     def sprite_tree(self):
+        """
+        Access the sprite tree provided by the associated tree manager.
+        
+        Returns:
+            The sprite tree object used to store groups and sprite items.
+        """
         return self.tree_manager.sprite_tree
 
     def _get_all_groups(self):
-        """Get all group items in the tree."""
+        """
+        Collects all group items from the sprite tree, including top-level groups and nested subgroups.
+        
+        Returns:
+            list: All group items found in the sprite tree (top-level and nested subgroup items).
+        """
         groups = []
         
         # Get top-level items (root groups)
@@ -25,6 +42,12 @@ class SpriteOperations:
         
         # Recursively get subgroups
         def find_subgroups(parent_item):
+            """
+            Recursively traverse parent_item's descendants and append any group items to the enclosing `groups` list.
+            
+            Parameters:
+                parent_item: Tree item whose child hierarchy will be searched for group items.
+            """
             for i in range(parent_item.childCount()):
                 child = parent_item.child(i)
                 if self.tree_manager._is_group_item(child):
@@ -39,7 +62,21 @@ class SpriteOperations:
         return groups
 
     def _add_sprite_to_group(self, group, x, y, width, height):
-        """Add a sprite to the specified group with coordinates."""
+        """
+        Add a sprite item to the given group using the specified canvas coordinates.
+        
+        Stores the coordinates (x, y, width, height) in the item's UserRole. If a pixmap is extracted from the canvas, sets the item's thumbnail and updates the size column to "width×height". Ensures the target group is expanded.
+        
+        Parameters:
+        	group: The target group/tree item to receive the new sprite.
+        	x (int): X coordinate on the canvas (pixels).
+        	y (int): Y coordinate on the canvas (pixels).
+        	width (int): Sprite width in pixels.
+        	height (int): Sprite height in pixels.
+        
+        Returns:
+        	sprite_item: The newly created sprite tree item.
+        """
         # Extract the sprite from canvas
         pixmap = self.tree_manager._extract_sprite_from_canvas(x, y, width, height)
         
@@ -60,7 +97,14 @@ class SpriteOperations:
         return sprite_item
 
     def _add_sprites_to_group(self, group, selected_rects):
-        """Add multiple sprites to the specified group."""
+        """
+        Add multiple sprites to the given group from a sequence of rectangle descriptors.
+        
+        Parameters:
+            group: The target group item in the sprite tree to which new sprite items will be added.
+            selected_rects: An iterable of rectangle descriptors; each entry may be a QRect-like object
+                (providing x(), y(), width(), height()) or a 4-tuple (x, y, width, height).
+        """
         for rect in selected_rects:
             # Handle both QRect objects and tuples
             if hasattr(rect, 'x'):
@@ -72,7 +116,15 @@ class SpriteOperations:
             self._add_sprite_to_group(group, x, y, width, height)
 
     def _create_sprite_with_coords(self, x, y, width, height):
-        """Create a new group and add sprite with coordinates."""
+        """
+        Create a new root group and add a sprite using the provided canvas coordinates.
+        
+        Parameters:
+            x (int): X coordinate of the sprite's top-left corner on the canvas (pixels).
+            y (int): Y coordinate of the sprite's top-left corner on the canvas (pixels).
+            width (int): Width of the sprite in pixels.
+            height (int): Height of the sprite in pixels.
+        """
         # Create a new root group
         new_group = self.tree_manager._add_group()
         
@@ -80,7 +132,14 @@ class SpriteOperations:
         self._add_sprite_to_group(new_group, x, y, width, height)
 
     def _create_sprites_with_coords(self, selected_rects):
-        """Create a new group and add multiple sprites with coordinates."""
+        """
+        Create a new root group and add sprites for each provided rectangle.
+        
+        Parameters:
+            selected_rects (iterable): An iterable of rectangles where each element is either a QRect-like object
+                (with .x(), .y(), .width(), .height()) or a 4-tuple (x, y, width, height) specifying coordinates
+                for a sprite to add to the new group.
+        """
         # Create a new root group
         new_group = self.tree_manager._add_group()
         
@@ -96,7 +155,17 @@ class SpriteOperations:
             self._add_sprite_to_group(new_group, x, y, width, height)
 
     def _edit_sprite_at_coords(self, x, y, width, height):
-        """Edit sprite at given coordinates."""
+        """
+        Open the sprite editor for the sprite located at the specified canvas rectangle.
+        
+        If a sprite image exists at (x, y, width, height), sets that image into the main window's sprite editor, shows the editor dock, switches the right panel to the editor view, stores the editing coordinates in `current_editing_coords`, and clears `current_editing_item`.
+        
+        Parameters:
+            x (int): X coordinate of the sprite rectangle on the canvas.
+            y (int): Y coordinate of the sprite rectangle on the canvas.
+            width (int): Width of the sprite rectangle.
+            height (int): Height of the sprite rectangle.
+        """
         pixmap = self.tree_manager._extract_sprite_from_canvas(x, y, width, height)
         if pixmap and hasattr(self.main_window, 'sprite_editor'):
             boundary = self.tree_manager._find_sprite_rect_in_canvas(x, y, width, height)
@@ -109,7 +178,14 @@ class SpriteOperations:
             self.current_editing_coords = (x, y, width, height)
 
     def _edit_sprite_item(self, item):
-        """Edit a sprite item in the tree."""
+        """
+        Open the sprite editor for the given sprite tree item.
+        
+        If the item provides an original pixmap, that pixmap is loaded into the application's sprite editor. If the item's UserRole data is a 4-tuple (x, y, width, height), that rectangle is converted to a canvas boundary and passed to the editor. The item is recorded as the current editing target; if the editor exists, its dock is shown and the right-hand UI stack is switched to the editor page.
+        
+        Parameters:
+            item: A tree item representing a sprite. The item is expected to expose `get_original_pixmap()` and may store a 4-tuple (x, y, width, height) in UserRole data to indicate the sprite's canvas coordinates.
+        """
         if hasattr(item, 'get_original_pixmap'):
             pixmap = item.get_original_pixmap()
             if pixmap and not pixmap.isNull():
@@ -130,7 +206,17 @@ class SpriteOperations:
                     self.main_window.right_stacked.setCurrentIndex(1)
 
     def _show_sprite_in_canvas(self, item):
-        """Highlight and show sprite in canvas."""
+        """
+        Highlight the sprite represented by the given tree item and show it in the canvas.
+        
+        If the item is a sprite (not a group) and contains stored coordinates (x, y, width, height),
+        the corresponding sprite rectangle in the canvas is selected and the canvas display is updated.
+        If the canvas is not currently in autodetect mode, this will toggle the canvas into autodetect mode.
+        
+        Parameters:
+            item: The tree item representing either a group or a sprite; for sprites it must contain a
+                4-tuple `(x, y, width, height)` in its user data to identify the sprite in the canvas.
+        """
         if not self.tree_manager._is_group_item(item):
             data = item.data(0, Qt.ItemDataRole.UserRole)
             if isinstance(data, tuple) and len(data) == 4:
