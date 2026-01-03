@@ -149,53 +149,45 @@ class Canvas(QScrollArea):
             print(f"DEBUG: clicked_rect is {clicked_rect}, total detected_sprites: {len(self.detected_sprites)}, total selected_cells: {len(self.selected_cells)}")
             
             if clicked_rect:
-                # Toggle selection in multi-selection list if Ctrl is pressed
-                if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                    print("DEBUG: Control key is pressed - toggling selection")
-                    if clicked_rect in self.selected_cells:
-                        # If it's in the selection, remove it
-                        self.selected_cells.remove(clicked_rect)
-                        print(f"DEBUG: Removed rect from selection, now {len(self.selected_cells)} selected")
+                # Handle left clicks for selection
+                if event.button() == Qt.MouseButton.LeftButton:
+                    # Toggle selection in multi-selection list if Ctrl is pressed
+                    if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                        print("DEBUG: Control key is pressed - toggling selection")
+                        if clicked_rect in self.selected_cells:
+                            # If it's in the selection, remove it
+                            self.selected_cells.remove(clicked_rect)
+                            print(f"DEBUG: Removed rect from selection, now {len(self.selected_cells)} selected")
+                        else:
+                            # If it's not in the selection, add it
+                            self.selected_cells.append(clicked_rect)
+                            print(f"DEBUG: Added rect to selection, now {len(self.selected_cells)} selected")
                     else:
-                        # If it's not in the selection, add it
-                        self.selected_cells.append(clicked_rect)
-                        print(f"DEBUG: Added rect to selection, now {len(self.selected_cells)} selected")
+                        # Single selection - set clicked sprite as the only selection
+                        self.selected_cells = [clicked_rect]
+                        print(f"DEBUG: Set single selection for clicked rect")
                     
                     # Update display to show highlights
                     self.update_display()
-                    
-                    # Emit multi-selection signal if right-clicking or if we have multiple selected
-                    if event.button() == Qt.MouseButton.RightButton and len(self.selected_cells) > 0:
+                
+                # Handle right clicks for context menu
+                elif event.button() == Qt.MouseButton.RightButton:
+                    # Rule 1: Right click on a sprite that IS ALREADY in the current selection
+                    # Do NOT change the selection, keep ALL selected sprites highlighted
+                    if clicked_rect in self.selected_cells:
+                        print("DEBUG: Right-clicked on already selected sprite - keeping selection unchanged")
+                        # Context menu will be shown for the entire selection
                         all_coords = [(rect.x(), rect.y(), rect.width(), rect.height()) for rect in self.selected_cells]
                         self.multi_grid_selection.emit(all_coords)
-                else:
-                    # Single selection - clear the multi-selection if not using Ctrl
-                    if event.button() == Qt.MouseButton.LeftButton:
-                        # Clear the multi-selection when clicking on any sprite without Ctrl
-                        self.selected_cells = []
-                        
-                        # Set the clicked sprite as the current selection
-                        self.selected_cell_rect = clicked_rect
-                        
-                        # Update display to show highlights
+                    
+                    # Rule 2: Right click on a sprite that is NOT in the current selection
+                    else:
+                        print("DEBUG: Right-clicked on non-selected sprite - selecting only this sprite")
+                        # Select ONLY the clicked sprite
+                        self.selected_cells = [clicked_rect]
                         self.update_display()
                         
-                        # Emit grid_cell_clicked for the selected rectangle
-                        print(f"DEBUG: Emitting grid_cell_clicked for auto-detected rect at ({clicked_rect.x()}, {clicked_rect.y()}, {clicked_rect.width()}x{clicked_rect.height()})")
-                        self.grid_cell_clicked.emit(
-                            clicked_rect.x(), 
-                            clicked_rect.y(), 
-                            clicked_rect.width(), 
-                            clicked_rect.height()
-                        )
-                    elif event.button() == Qt.MouseButton.RightButton:
-                        # Clear the multi-selection when right-clicking without Ctrl
-                        if len(self.selected_cells) > 0:
-                            print(f"DEBUG: Clearing multi-selection with {len(self.selected_cells)} items before right-click")
-                            self.selected_cells = []
-                            self.update_display()
-                        
-                        # Right click on detected sprite - emit the signal for single sprite
+                        # Emit signal for single sprite context menu
                         print(f"DEBUG: Emitting grid_cell_right_clicked for auto-detected rect at ({clicked_rect.x()}, {clicked_rect.y()}, {clicked_rect.width()}x{clicked_rect.height()})")
                         self.grid_cell_right_clicked.emit(
                             clicked_rect.x(), 
@@ -206,19 +198,27 @@ class Canvas(QScrollArea):
             else:
                 print("DEBUG: Clicked outside detected sprites")
                 # Clicked outside detected sprites
-                if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
-                    # Clear the multi-selection and current selection highlight if not using Ctrl
-                    self.selected_cells = []
-                    self.selected_cell_rect = None
-                    print("DEBUG: Cleared selected_cells and selected_cell_rect")
-                    self.update_display()
                 
                 # Handle right-click outside detected sprites
-                if event.button() == Qt.MouseButton.RightButton and len(self.selected_cells) > 0:
-                    # If we have multi-selection and right-click outside detected sprites, emit multi-selection
-                    all_coords = [(rect.x(), rect.y(), rect.width(), rect.height()) for rect in self.selected_cells]
-                    # Emit multi-selection signal with all coordinates
-                    self.multi_grid_selection.emit(all_coords)
+                if event.button() == Qt.MouseButton.RightButton:
+                    # Rule 3: Right click on empty space - do NOT modify selection
+                    if len(self.selected_cells) > 0:
+                        # If we have multi-selection, show context menu for the multi-selection
+                        all_coords = [(rect.x(), rect.y(), rect.width(), rect.height()) for rect in self.selected_cells]
+                        # Emit multi-selection signal with all coordinates
+                        self.multi_grid_selection.emit(all_coords)
+                    else:
+                        # Just show the empty context menu (no change to selection)
+                        print("DEBUG: Right-clicked on empty space with no selection")
+                
+                # For left clicks outside sprites, clear selection if not holding Ctrl
+                elif event.button() == Qt.MouseButton.LeftButton:
+                    if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+                        # Clear the multi-selection and current selection highlight if not using Ctrl
+                        self.selected_cells = []
+                        self.selected_cell_rect = None
+                        print("DEBUG: Cleared selected_cells and selected_cell_rect")
+                        self.update_display()
         else:
             # Grid mode - existing functionality
             # Calculate grid cell coordinates
@@ -237,65 +237,71 @@ class Canvas(QScrollArea):
                 clicked_rect = QRect(int(cell_x), int(cell_y), 
                                     self.grid_width, self.grid_height)
                 
-                # Check if Ctrl key is pressed for multi-selection
-                if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                    # Toggle selection in multi-selection list
-                    if clicked_rect in self.selected_cells:
-                        self.selected_cells.remove(clicked_rect)
+                # Handle left clicks for selection
+                if event.button() == Qt.MouseButton.LeftButton:
+                    # Check if Ctrl key is pressed for multi-selection
+                    if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                        # Toggle selection in multi-selection list
+                        if clicked_rect in self.selected_cells:
+                            self.selected_cells.remove(clicked_rect)
+                        else:
+                            self.selected_cells.append(clicked_rect)
                     else:
-                        self.selected_cells.append(clicked_rect)
+                        # Single selection - set clicked cell as the only selection
+                        self.selected_cells = [clicked_rect]
                     
                     # Update display to show highlights
                     self.update_display()
                     
-                    # If right-clicking during multi-selection, emit multi-selection signal
-                    if event.button() == Qt.MouseButton.RightButton and len(self.selected_cells) > 0:
-                        # Calculate the coordinates for all selected cells
+                    # Only emit grid_cell_clicked for left clicks (for highlighting)
+                    print(f"DEBUG: Emitting grid_cell_clicked for left click at ({int(cell_x)}, {int(cell_y)}, {self.grid_width}x{self.grid_height})")
+                    self.grid_cell_clicked.emit(int(cell_x), int(cell_y), 
+                                               self.grid_width, self.grid_height)
+                
+                # Handle right clicks for context menu
+                elif event.button() == Qt.MouseButton.RightButton:
+                    # Rule 1: Right click on a cell that IS ALREADY in the current selection
+                    # Do NOT change the selection, keep ALL selected sprites highlighted
+                    if clicked_rect in self.selected_cells and len(self.selected_cells) > 1:
+                        print("DEBUG: Right-clicked on already selected grid cell - keeping selection unchanged")
+                        # Context menu will be shown for the entire selection
                         all_coords = [(rect.x(), rect.y(), rect.width(), rect.height()) for rect in self.selected_cells]
-                        
-                        # Emit multi-selection signal with all coordinates
                         self.multi_grid_selection.emit(all_coords)
-                else:
-                    # Single selection - clear multi-selection if not right-clicking
-                    if event.button() == Qt.MouseButton.LeftButton:
-                        self.selected_cells = [clicked_rect]  # Select only this cell
-                        # Update display to show highlight
+                    
+                    # Rule 2: Right click on a cell that is NOT in the current selection
+                    else:
+                        # Select ONLY the clicked cell
+                        print("DEBUG: Right-clicked on non-selected grid cell - selecting only this cell")
+                        self.selected_cells = [clicked_rect]
                         self.update_display()
                         
-                        # Only emit grid_cell_clicked for left clicks (for highlighting)
-                        print(f"DEBUG: Emitting grid_cell_clicked for left click at ({int(cell_x)}, {int(cell_y)}, {self.grid_width}x{self.grid_height})")
-                        self.grid_cell_clicked.emit(int(cell_x), int(cell_y), 
-                                                   self.grid_width, self.grid_height)
-                    
-                    # For right click, check if we have multi-selection
-                    elif event.button() == Qt.MouseButton.RightButton:
-                        if len(self.selected_cells) > 0:
-                            # If we have multi-selection, right-click should use the multi-selection
-                            all_coords = [(rect.x(), rect.y(), rect.width(), rect.height()) for rect in self.selected_cells]
-                            
-                            # Emit multi-selection signal with all coordinates
-                            self.multi_grid_selection.emit(all_coords)
-                        else:
-                            # If no multi-selection, emit single cell right-click
-                            print(f"DEBUG: Emitting grid_cell_right_clicked for right click at ({int(cell_x)}, {int(cell_y)}, {self.grid_width}x{self.grid_height})")
-                            # Emit right-click signal to show group selection dialog
-                            self.grid_cell_right_clicked.emit(int(cell_x), int(cell_y), 
-                                                             self.grid_width, self.grid_height)
+                        # Emit signal for single cell context menu
+                        print(f"DEBUG: Emitting grid_cell_right_clicked for right click at ({int(cell_x)}, {int(cell_y)}, {self.grid_width}x{self.grid_height})")
+                        # Emit right-click signal to show group selection dialog
+                        self.grid_cell_right_clicked.emit(int(cell_x), int(cell_y), 
+                                                         self.grid_width, self.grid_height)
             else:
                 # Click was outside any grid cell
-                if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
-                    # Clear selections only if Ctrl is not pressed
-                    self.selected_cell_rect = None
-                    self.selected_cells = []
-                    self.update_display()
                 
                 # Handle right-click outside grid cells
-                if event.button() == Qt.MouseButton.RightButton and len(self.selected_cells) > 0:
-                    # If we have multi-selection and right-click outside grid, use multi-selection
-                    all_coords = [(rect.x(), rect.y(), rect.width(), rect.height()) for rect in self.selected_cells]
-                    
-                    # Emit multi-selection signal with all coordinates
-                    self.multi_grid_selection.emit(all_coords)
+                if event.button() == Qt.MouseButton.RightButton:
+                    # Rule 3: Right click on empty space - do NOT modify selection
+                    if len(self.selected_cells) > 0:
+                        # If we have multi-selection, show context menu for the multi-selection
+                        all_coords = [(rect.x(), rect.y(), rect.width(), rect.height()) for rect in self.selected_cells]
+                        # Emit multi-selection signal with all coordinates
+                        self.multi_grid_selection.emit(all_coords)
+                    else:
+                        # Just show the empty context menu (no change to selection)
+                        print("DEBUG: Right-clicked on empty space with no selection")
+                
+                # For left clicks outside grid cells, clear selection if not holding Ctrl
+                elif event.button() == Qt.MouseButton.LeftButton:
+                    if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+                        # Clear selections only if Ctrl is not pressed
+                        self.selected_cell_rect = None
+                        self.selected_cells = []
+                        self.update_display()
     def _draw_grid(self, painter: QPainter):
         """Draw a grid overlay as separate cells with spacing between them, creating a Unity-like sprite editor appearance."""
         pen = QPen(self.grid_color)
