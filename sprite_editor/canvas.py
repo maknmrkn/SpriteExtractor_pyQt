@@ -54,12 +54,16 @@ class Canvas(QScrollArea):
 
     def load_image(self, image_path: str):
         """Load an image from file path."""
-        self.pixmap = QPixmap(image_path)
-        if not self.pixmap.isNull():
-            self.current_path = image_path  # Store the path for sprite detection
-            self.update_display()
-            return True
-        return False
+        try:
+            self.pixmap = QPixmap(image_path)
+            if not self.pixmap.isNull():
+                self.current_path = image_path  # Store the path for sprite detection
+                self.update_display()
+                return True
+            return False
+        except Exception as e:
+            print(f"Error loading image: {e}")
+            return False
 
     def update_display(self):
         """Update the displayed pixmap and draw grid if enabled."""
@@ -135,8 +139,6 @@ class Canvas(QScrollArea):
         x = pos.x() + scroll_x - self.image_label.x()
         y = pos.y() + scroll_y - self.image_label.y()
         
-        print(f"DEBUG: mousePressEvent at ({x}, {y}), modifiers: {event.modifiers()}, in_autodetect_mode: {self.in_autodetect_mode}")
-        
         # In auto-detection mode, handle clicks differently
         if self.in_autodetect_mode:
             # Check if the click is on a detected sprite rectangle
@@ -146,26 +148,20 @@ class Canvas(QScrollArea):
                     clicked_rect = rect
                     break
             
-            print(f"DEBUG: clicked_rect is {clicked_rect}, total detected_sprites: {len(self.detected_sprites)}, total selected_cells: {len(self.selected_cells)}")
-            
             if clicked_rect:
                 # Handle left clicks for selection
                 if event.button() == Qt.MouseButton.LeftButton:
                     # Toggle selection in multi-selection list if Ctrl is pressed
                     if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                        print("DEBUG: Control key is pressed - toggling selection")
                         if clicked_rect in self.selected_cells:
                             # If it's in the selection, remove it
                             self.selected_cells.remove(clicked_rect)
-                            print(f"DEBUG: Removed rect from selection, now {len(self.selected_cells)} selected")
                         else:
                             # If it's not in the selection, add it
                             self.selected_cells.append(clicked_rect)
-                            print(f"DEBUG: Added rect to selection, now {len(self.selected_cells)} selected")
                     else:
                         # Single selection - set clicked sprite as the only selection
                         self.selected_cells = [clicked_rect]
-                        print(f"DEBUG: Set single selection for clicked rect")
                     
                     # Update display to show highlights
                     self.update_display()
@@ -175,20 +171,17 @@ class Canvas(QScrollArea):
                     # Rule 1: Right click on a sprite that IS ALREADY in the current selection
                     # Do NOT change the selection, keep ALL selected sprites highlighted
                     if clicked_rect in self.selected_cells:
-                        print("DEBUG: Right-clicked on already selected sprite - keeping selection unchanged")
                         # Context menu will be shown for the entire selection
                         all_coords = [(rect.x(), rect.y(), rect.width(), rect.height()) for rect in self.selected_cells]
                         self.multi_grid_selection.emit(all_coords)
                     
                     # Rule 2: Right click on a sprite that is NOT in the current selection
                     else:
-                        print("DEBUG: Right-clicked on non-selected sprite - selecting only this sprite")
                         # Select ONLY the clicked sprite
                         self.selected_cells = [clicked_rect]
                         self.update_display()
                         
                         # Emit signal for single sprite context menu
-                        print(f"DEBUG: Emitting grid_cell_right_clicked for auto-detected rect at ({clicked_rect.x()}, {clicked_rect.y()}, {clicked_rect.width()}x{clicked_rect.height()})")
                         self.grid_cell_right_clicked.emit(
                             clicked_rect.x(), 
                             clicked_rect.y(), 
@@ -196,7 +189,6 @@ class Canvas(QScrollArea):
                             clicked_rect.height()
                         )
             else:
-                print("DEBUG: Clicked outside detected sprites")
                 # Clicked outside detected sprites
                 
                 # Handle right-click outside detected sprites
@@ -209,7 +201,7 @@ class Canvas(QScrollArea):
                         self.multi_grid_selection.emit(all_coords)
                     else:
                         # Just show the empty context menu (no change to selection)
-                        print("DEBUG: Right-clicked on empty space with no selection")
+                        pass  # No action needed, just keeping selection unchanged
                 
                 # For left clicks outside sprites, clear selection if not holding Ctrl
                 elif event.button() == Qt.MouseButton.LeftButton:
@@ -217,7 +209,6 @@ class Canvas(QScrollArea):
                         # Clear the multi-selection and current selection highlight if not using Ctrl
                         self.selected_cells = []
                         self.selected_cell_rect = None
-                        print("DEBUG: Cleared selected_cells and selected_cell_rect")
                         self.update_display()
         else:
             # Grid mode - existing functionality
@@ -254,7 +245,6 @@ class Canvas(QScrollArea):
                     self.update_display()
                     
                     # Only emit grid_cell_clicked for left clicks (for highlighting)
-                    print(f"DEBUG: Emitting grid_cell_clicked for left click at ({int(cell_x)}, {int(cell_y)}, {self.grid_width}x{self.grid_height})")
                     self.grid_cell_clicked.emit(int(cell_x), int(cell_y), 
                                                self.grid_width, self.grid_height)
                 
@@ -263,7 +253,6 @@ class Canvas(QScrollArea):
                     # Rule 1: Right click on a cell that IS ALREADY in the current selection
                     # Do NOT change the selection, keep ALL selected sprites highlighted
                     if clicked_rect in self.selected_cells and len(self.selected_cells) > 1:
-                        print("DEBUG: Right-clicked on already selected grid cell - keeping selection unchanged")
                         # Context menu will be shown for the entire selection
                         all_coords = [(rect.x(), rect.y(), rect.width(), rect.height()) for rect in self.selected_cells]
                         self.multi_grid_selection.emit(all_coords)
@@ -271,12 +260,10 @@ class Canvas(QScrollArea):
                     # Rule 2: Right click on a cell that is NOT in the current selection
                     else:
                         # Select ONLY the clicked cell
-                        print("DEBUG: Right-clicked on non-selected grid cell - selecting only this cell")
                         self.selected_cells = [clicked_rect]
                         self.update_display()
                         
                         # Emit signal for single cell context menu
-                        print(f"DEBUG: Emitting grid_cell_right_clicked for right click at ({int(cell_x)}, {int(cell_y)}, {self.grid_width}x{self.grid_height})")
                         # Emit right-click signal to show group selection dialog
                         self.grid_cell_right_clicked.emit(int(cell_x), int(cell_y), 
                                                          self.grid_width, self.grid_height)
@@ -293,7 +280,7 @@ class Canvas(QScrollArea):
                         self.multi_grid_selection.emit(all_coords)
                     else:
                         # Just show the empty context menu (no change to selection)
-                        print("DEBUG: Right-clicked on empty space with no selection")
+                        pass  # No action needed, just keeping selection unchanged
                 
                 # For left clicks outside grid cells, clear selection if not holding Ctrl
                 elif event.button() == Qt.MouseButton.LeftButton:
@@ -302,6 +289,7 @@ class Canvas(QScrollArea):
                         self.selected_cell_rect = None
                         self.selected_cells = []
                         self.update_display()
+
     def _draw_grid(self, painter: QPainter):
         """Draw a grid overlay as separate cells with spacing between them, creating a Unity-like sprite editor appearance."""
         pen = QPen(self.grid_color)

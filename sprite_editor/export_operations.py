@@ -35,11 +35,14 @@ class ExportOperations:
         )
         
         if path:
-            # Save the pixmap
-            if path.lower().endswith('.jpg') or path.lower().endswith('.jpeg'):
-                pixmap.save(path, "JPEG", 90)  # 90% quality for JPEG
-            else:
-                pixmap.save(path, "PNG")
+            try:
+                # Save the pixmap
+                if path.lower().endswith('.jpg') or path.lower().endswith('.jpeg'):
+                    pixmap.save(path, "JPEG", 90)  # 90% quality for JPEG
+                else:
+                    pixmap.save(path, "PNG")
+            except Exception as e:
+                QMessageBox.critical(self.sprite_tree, "Error", f"Failed to save sprite: {str(e)}")
 
     def _export_group(self, group_item):
         """Export all sprites in a group to individual files."""
@@ -49,24 +52,40 @@ class ExportOperations:
         # Get directory to save files
         dir_path = QFileDialog.getExistingDirectory(
             self.sprite_tree,
-            "Select Export Directory"
+            "Select Directory to Export Group"
         )
         
         if not dir_path:
-            return
+            return  # User cancelled
         
-        # Collect all sprite items in the group
-        sprite_items = []
-        self.tree_manager._collect_sprite_items(group_item, sprite_items)
-        
-        # Export each sprite
-        for i, item in enumerate(sprite_items):
-            if hasattr(item, 'get_original_pixmap'):
-                pixmap = item.get_original_pixmap()
-                if pixmap and not pixmap.isNull():
-                    file_name = f"{item.text(0)}_{i:03d}.png"
-                    file_path = os.path.join(dir_path, file_name)
+        try:
+            # Process each child in the group
+            for i in range(group_item.childCount()):
+                child_item = group_item.child(i)
+                
+                # Skip if it's a subgroup
+                if self.tree_manager._is_group_item(child_item):
+                    continue
+                
+                # Get pixmap from item
+                pixmap = None
+                if hasattr(child_item, 'get_original_pixmap'):
+                    pixmap = child_item.get_original_pixmap()
+                
+                if not pixmap or pixmap.isNull():
+                    continue
+                
+                # Create file name based on item text
+                file_name = f"{child_item.text(0)}.png"
+                file_path = os.path.join(dir_path, file_name)
+                
+                # Save the pixmap
+                if file_path.lower().endswith('.jpg') or file_path.lower().endswith('.jpeg'):
+                    pixmap.save(file_path, "JPEG", 90)  # 90% quality for JPEG
+                else:
                     pixmap.save(file_path, "PNG")
+        except Exception as e:
+            QMessageBox.critical(self.sprite_tree, "Error", f"Failed to export group: {str(e)}")
 
     def _export_group_as_gif(self, group_item):
         """Export group as animated GIF."""
