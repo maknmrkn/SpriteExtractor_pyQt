@@ -14,6 +14,11 @@ class Canvas(QScrollArea):
     multi_grid_selection = pyqtSignal(list)  # List of (x, y, width, height) tuples
 
     def __init__(self, parent=None):
+        """
+        Initialize the Canvas scroll area with its image label, display state, grid configuration, and selection/autodetect state.
+        
+        Sets up the inner QLabel used to display images, default visual properties (pixmap, scale factor, background color), grid parameters (separate X/Y cell size, padding, spacing, line style, and color), selection storage for single and multiple selections, the list of auto-detected sprite rectangles, an autodetect mode flag, and enables the custom context menu policy.
+        """
         super().__init__(parent)
         
         self.image_label = QLabel()
@@ -53,7 +58,17 @@ class Canvas(QScrollArea):
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
     def load_image(self, image_path: str):
-        """Load an image from file path."""
+        """
+        Load an image from the given filesystem path into the canvas.
+        
+        On success this sets the canvas pixmap, stores the path in `current_path`, updates the display, and prepares the image for sprite detection. If loading fails no state is changed other than ensuring no valid pixmap is set.
+        
+        Parameters:
+            image_path (str): Filesystem path to the image file to load.
+        
+        Returns:
+            bool: `True` if the image was loaded and displayed, `False` otherwise.
+        """
         try:
             self.pixmap = QPixmap(image_path)
             if not self.pixmap.isNull():
@@ -114,7 +129,14 @@ class Canvas(QScrollArea):
         self.updateGeometry()
     
     def _draw_detected_sprites(self, painter: QPainter):
-        """Draw detected sprites as rectangles"""
+        """
+        Render all auto-detected sprite bounding rectangles onto the provided painter.
+        
+        Rectangles are drawn using the canvas's current grid color and configured line style.
+        
+        Parameters:
+            painter (QPainter): The painter used to draw the rectangles onto the canvas.
+        """
         pen = QPen(self.grid_color)
         pen.setWidth(1)
         
@@ -130,7 +152,26 @@ class Canvas(QScrollArea):
             painter.drawRect(rect)
     
     def mousePressEvent(self, event):
-        """Handle mouse clicks to detect grid cell selection."""
+        """
+        Handle mouse press events for both grid and autodetection interaction modes.
+        
+        Processes clicks relative to the displayed image, updating single or multi-selection state,
+        clearing selections when appropriate, and emitting selection-related signals:
+        - Emits `grid_cell_clicked(x, y, width, height)` on left-click of a single grid cell.
+        - Emits `grid_cell_right_clicked(x, y, width, height)` on right-click for a single cell/sprite.
+        - Emits `multi_grid_selection(list_of_rect_tuples)` when a right-click targets an existing multi-selection
+          or when requesting a context menu for multiple selected regions.
+        
+        Behavior differs by mode:
+        - In autodetect mode, clicks operate on `detected_sprites` rectangles.
+        - In grid mode, clicks operate on the computed grid cells using padding, spacing, and cell size.
+        Ctrl-modified left-clicks toggle membership in the multi-selection; unmodified left-clicks set a single selection.
+        The method updates visual highlights by calling `update_display()` as needed.
+        
+        Parameters:
+            event: QMouseEvent
+                The mouse event reporting button, position, and modifiers.
+        """
         pos = event.pos()
         # Account for any scrolling in the QScrollArea
         scroll_x = self.horizontalScrollBar().value()
@@ -291,7 +332,12 @@ class Canvas(QScrollArea):
                         self.update_display()
 
     def _draw_grid(self, painter: QPainter):
-        """Draw a grid overlay as separate cells with spacing between them, creating a Unity-like sprite editor appearance."""
+        """
+        Draws the grid overlay across the image using the instance's grid dimensions, padding, spacing, color, and line style.
+        
+        Parameters:
+            painter (QPainter): Painter to draw the grid onto the display pixmap.
+        """
         pen = QPen(self.grid_color)
         pen.setWidth(1)
         

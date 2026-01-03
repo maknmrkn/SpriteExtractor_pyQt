@@ -5,15 +5,38 @@ from PyQt6.QtGui import QCursor
 
 class TreeContextMenu:
     def __init__(self, tree_manager):
+        """
+        Initialize the TreeContextMenu with the provided tree manager and cache the main application window.
+        
+        Parameters:
+            tree_manager (TreeManager): Manager that owns the sprite/tree state and provides access to the main application window via its `main_window` attribute.
+        """
         self.tree_manager = tree_manager
         self.main_window = tree_manager.main_window
 
     @property
     def sprite_tree(self):
+        """
+        Access the sprite tree widget provided by the associated TreeManager.
+        
+        Returns:
+            QTreeWidget: The tree widget displaying groups and sprite items.
+        """
         return self.tree_manager.sprite_tree
 
     def _show_tree_context_menu(self, position):
-        """Show context menu for the sprite tree."""
+        """
+        Show a context menu for the sprite tree at the given widget-local position.
+        
+        Displays a context-sensitive menu for the sprite tree based on the current selection:
+        - If a group is selected, presents actions to add subgroups/sprites, move selected canvas sprites into the group (when applicable), rename, delete, and export the group.
+        - If a sprite item is selected, presents actions to edit, rename, show in canvas, delete, and export the sprite.
+        - If nothing is selected, presents actions to add a new root-level group or a default group.
+        Selecting a menu action delegates the operation to the associated TreeManager methods.
+        
+        Parameters:
+            position (QPoint): Position in the sprite tree widget's viewport where the menu should be shown.
+        """
         menu = QMenu()
         
         # Add actions based on selection
@@ -67,7 +90,18 @@ class TreeContextMenu:
         menu.exec(self.sprite_tree.viewport().mapToGlobal(position))
 
     def _on_grid_cell_right_clicked(self, x, y, width, height):
-        """Handle grid cell right-click and show group selection dialog."""
+        """
+        Show a context menu for a single grid cell offering group association, group creation, sprite editing, and sprite extraction actions.
+        
+        Parameters:
+            x (int): X coordinate of the grid cell (column index or pixel X depending on caller).
+            y (int): Y coordinate of the grid cell (row index or pixel Y depending on caller).
+            width (int): Width of the grid cell in pixels.
+            height (int): Height of the grid cell in pixels.
+        
+        Description:
+            The menu lists existing groups (if any) under "Add to Group" to add the sprite at the specified coordinates to a chosen group, provides an option to create a new group with the sprite at these coordinates, and exposes actions to edit the sprite at the coordinates or extract and save it. The menu is displayed at the current cursor position.
+        """
         # Create context menu for single sprite
         menu = QMenu()
         menu.setStyleSheet("""
@@ -119,7 +153,17 @@ class TreeContextMenu:
         menu.exec(QCursor.pos())
 
     def _on_multi_grid_selection(self, selected_rects):
-        """Handle multi-grid selection with Ctrl key."""
+        """
+        Show a context menu for a multi-cell grid selection with actions to create groups, add sprites to existing groups, and export the selection.
+        
+        Displays a styled menu at the current cursor position that:
+        - Offers "Add to Group" submenu listing existing groups (adds all selected cells to the chosen group).
+        - Provides actions to create a new group from the selected cells.
+        - Provides an action to export all selected sprites.
+        
+        Parameters:
+            selected_rects (Sequence): A sequence of grid rectangles or coordinate tuples representing the selected cells to operate on.
+        """
         menu = QMenu()
         menu.setStyleSheet("""
             QMenu {
