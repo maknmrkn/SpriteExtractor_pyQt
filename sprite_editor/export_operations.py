@@ -1,6 +1,9 @@
 import os
-from PyQt6.QtWidgets import QFileDialog, QMessageBox
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from .threading_utils import Worker, WorkerSignals
+from PyQt6.QtCore import QThreadPool
+import logging
 
 
 class ExportOperations:
@@ -13,6 +16,10 @@ class ExportOperations:
         """
         self.tree_manager = tree_manager
         self.main_window = tree_manager.main_window
+        self.thread_pool = QThreadPool.globalInstance()
+        # Set up logging
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
 
     @property
     def sprite_tree(self):
@@ -61,6 +68,7 @@ class ExportOperations:
                 else:
                     pixmap.save(path, "PNG")
             except Exception as e:
+                self.logger.error(f"Failed to save sprite: {str(e)}")
                 QMessageBox.critical(self.sprite_tree, "Error", f"Failed to save sprite: {str(e)}")
 
     def _export_group(self, group_item):
@@ -84,7 +92,19 @@ class ExportOperations:
         if not dir_path:
             return  # User cancelled
         
+        # Create a worker to handle the export in a background thread
+        worker = Worker(self._export_group_impl, group_item, dir_path)
+        worker.signals.finished.connect(self._export_group_success)
+        worker.signals.error.connect(self._export_group_error)
+        self.thread_pool.start(worker)
+
+    def _export_group_impl(self, group_item, dir_path):
+        """
+        Implementation of group export that runs in a background thread.
+        """
         try:
+            self.logger.info(f"Starting export of group '{group_item.text(0)}' to {dir_path}")
+            
             # Process each child in the group
             for i in range(group_item.childCount()):
                 child_item = group_item.child(i)
@@ -107,11 +127,35 @@ class ExportOperations:
                 
                 # Save the pixmap
                 if file_path.lower().endswith('.jpg') or file_path.lower().endswith('.jpeg'):
-                    pixmap.save(file_path, "JPEG", 90)  # 90% quality for JPEG
+                    success = pixmap.save(file_path, "JPEG", 90)  # 90% quality for JPEG
                 else:
-                    pixmap.save(file_path, "PNG")
+                    success = pixmap.save(file_path, "PNG")
+                
+                if not success:
+                    self.logger.warning(f"Failed to save {file_path}")
+            
+            self.logger.info(f"Successfully exported group '{group_item.text(0)}'")
+            return f"Group '{group_item.text(0)}' exported successfully"
         except Exception as e:
-            QMessageBox.critical(self.sprite_tree, "Error", f"Failed to export group: {str(e)}")
+            self.logger.error(f"Error during group export: {str(e)}")
+            raise e
+
+    def _export_group_success(self, result):
+        """
+        Callback for successful group export.
+        """
+        self.logger.info(result)
+        self.main_window.statusBar().showMessage(result, 3000)
+
+    def _export_group_error(self, error_info):
+        """
+        Callback for error during group export.
+        """
+        exctype, value, tb_str = error_info
+        self.logger.error(f"Failed to export group: {str(value)}")
+        self.main_window.statusBar().showMessage(f"Failed to export group: {str(value)}", 5000)
+        # Show error in a message box as well
+        QMessageBox.critical(self.sprite_tree, "Error", f"Failed to export group: {str(value)}")
 
     def _export_group_as_gif(self, group_item):
         """
@@ -120,7 +164,7 @@ class ExportOperations:
         Prompts the user to choose a destination GIF file, collects all sprite pixmaps from the group,
         converts them to PIL Images, and saves them as an animated GIF (100ms frame duration, loop forever).
         If the user cancels, the group is empty, or the item is not a group, the function returns without action.
-        Shows an informational message on success and a warning if Pillow (PIL) is not available.
+        Shows an informational message on success and a warning if Pillow (PIL) is required but not available.
         
         Parameters:
             group_item: The tree item representing the group to export; must be a group item.
@@ -139,36 +183,73 @@ class ExportOperations:
         if not path:
             return
         
-        # Collect all sprite pixmaps
-        sprite_pixmaps = []
-        self.tree_manager._collect_sprite_pixmaps(group_item, sprite_pixmaps)
-        
-        if not sprite_pixmaps:
-            return
-        
-        # Save as GIF (you might need to implement GIF saving)
-        # This is a placeholder - you need to implement actual GIF saving
+        # Create a worker to handle the GIF export in a background thread
+        worker = Worker(self._export_group_as_gif_impl, group_item, path)
+        worker.signals.finished.connect(self._export_gif_success)
+        worker.signals.error.connect(self._export_gif_error)
+        self.thread_pool.start(worker)
+
+    def _export_group_as_gif_impl(self, group_item, path):
+        """
+        Implementation of GIF export that runs in a background thread.
+        """
         try:
-            # Convert QPixmap to QImage and save
-            from PIL import Image
-            images = []
-            for pixmap in sprite_pixmaps:
-                image = pixmap.toImage()
-                if not image.isNull():
-                    # Convert to PIL Image
-                    pil_image = self._qimage_to_pil(image)
-                    if pil_image:
-                        images.append(pil_image)
+            self.logger.info(f"Starting GIF export of group '{group_item.text(0)}' to {path}")
             
-            if images:
-                images[0].save(path, save_all=True, append_images=images[1:], 
-                             duration=100, loop=0)
+            # Collect all sprite pixmaps
+            sprite_pixmaps = []
+            self.tree_manager._collect_sprite_pixmaps(group_item, sprite_pixmaps)
+            
+            if not sprite_pixmaps:
+                self.logger.warning("No sprites found for GIF export")
+                return "No sprites found for GIF export"
+            
+            # Save as GIF (you might need to implement GIF saving)
+            try:
+                # Convert QPixmap to QImage and save
+                from PIL import Image
+                images = []
+                for i, pixmap in enumerate(sprite_pixmaps):
+                    image = pixmap.toImage()
+                    if not image.isNull():
+                        # Convert to PIL Image
+                        pil_image = self._qimage_to_pil(image)
+                        if pil_image:
+                            images.append(pil_image)
                 
-                QMessageBox.information(self.sprite_tree, "Success", 
-                                      f"GIF exported successfully to:\n{path}")
-        except ImportError:
-            QMessageBox.warning(self.sprite_tree, "Error", 
-                              "PIL (Pillow) library is required for GIF export.")
+                if images:
+                    images[0].save(path, save_all=True, append_images=images[1:], 
+                                 duration=100, loop=0)
+                    
+                    self.logger.info(f"GIF exported successfully to {path}")
+                    return f"GIF exported successfully to:\n{path}"
+                else:
+                    self.logger.warning("No valid images found for GIF export")
+                    return "No valid images found for GIF export"
+            except ImportError:
+                error_msg = "PIL (Pillow) library is required for GIF export."
+                self.logger.error(error_msg)
+                raise ImportError(error_msg)
+        except Exception as e:
+            self.logger.error(f"Error during GIF export: {str(e)}")
+            raise e
+
+    def _export_gif_success(self, result):
+        """
+        Callback for successful GIF export.
+        """
+        self.logger.info(result)
+        self.main_window.statusBar().showMessage("GIF exported successfully", 3000)
+        QMessageBox.information(self.sprite_tree, "Success", result)
+
+    def _export_gif_error(self, error_info):
+        """
+        Callback for error during GIF export.
+        """
+        exctype, value, tb_str = error_info
+        self.logger.error(f"Failed to export GIF: {str(value)}")
+        self.main_window.statusBar().showMessage(f"Failed to export GIF: {str(value)}", 5000)
+        QMessageBox.warning(self.sprite_tree, "Error", f"PIL (Pillow) library is required for GIF export.")
 
     def _export_selected_sprites(self, selected_rects):
         """
@@ -191,15 +272,51 @@ class ExportOperations:
         
         if not dir_path:
             return
-        
-        # Export each selected sprite
-        for i, rect in enumerate(selected_rects):
-            pixmap = self.tree_manager._extract_sprite_from_canvas(rect.x(), rect.y(), 
-                                                     rect.width(), rect.height())
-            if pixmap and not pixmap.isNull():
-                file_name = f"sprite_{i:03d}.png"
-                file_path = os.path.join(dir_path, file_name)
-                pixmap.save(file_path, "PNG")
+
+        # Create a worker to handle the export in a background thread
+        worker = Worker(self._export_selected_sprites_impl, selected_rects, dir_path)
+        worker.signals.finished.connect(self._export_selected_success)
+        worker.signals.error.connect(self._export_selected_error)
+        self.thread_pool.start(worker)
+
+    def _export_selected_sprites_impl(self, selected_rects, dir_path):
+        """
+        Implementation of selected sprites export that runs in a background thread.
+        """
+        try:
+            self.logger.info(f"Starting export of {len(selected_rects)} selected sprites to {dir_path}")
+            
+            # Export each selected sprite
+            for i, rect in enumerate(selected_rects):
+                pixmap = self.tree_manager._extract_sprite_from_canvas(rect.x(), rect.y(), 
+                                                         rect.width(), rect.height())
+                if pixmap and not pixmap.isNull():
+                    file_name = f"sprite_{i:03d}.png"
+                    file_path = os.path.join(dir_path, file_name)
+                    success = pixmap.save(file_path, "PNG")
+                    if not success:
+                        self.logger.warning(f"Failed to save {file_path}")
+            
+            self.logger.info(f"Successfully exported {len(selected_rects)} sprites")
+            return f"Exported {len(selected_rects)} sprites successfully"
+        except Exception as e:
+            self.logger.error(f"Error during selected sprites export: {str(e)}")
+            raise e
+
+    def _export_selected_success(self, result):
+        """
+        Callback for successful selected sprites export.
+        """
+        self.logger.info(result)
+        self.main_window.statusBar().showMessage(result, 3000)
+
+    def _export_selected_error(self, error_info):
+        """
+        Callback for error during selected sprites export.
+        """
+        exctype, value, tb_str = error_info
+        self.logger.error(f"Failed to export selected sprites: {str(value)}")
+        self.main_window.statusBar().showMessage(f"Failed to export selected sprites: {str(value)}", 5000)
 
     def _extract_and_save_sprite(self, x, y, width, height):
         """
@@ -256,7 +373,7 @@ class ExportOperations:
         """
         Collects all non-group sprite items under a tree item and appends them to result_list.
         
-        Traverses the tree rooted at `item` recursively; when a non-group sprite item is encountered it is appended to `result_list` in traversal order. The function modifies `result_list` in place.
+        Traverses the tree rooted at `item` recursively; when a non-group sprite item is encountered it is appended to `result_list` in traversal order.
         
         Parameters:
             item: The tree item to traverse; traversal does nothing if falsy.

@@ -84,6 +84,8 @@ class MainWindow(QMainWindow):
 
         # Initialize sprite detector
         self.sprite_detector = SpriteDetector()
+        # Connect the finished signal to the handler
+        self.sprite_detector.finished.connect(self._on_detection_finished)
 
         # Connect to the grid cell clicked signal (for highlighting)
         self.canvas.grid_cell_clicked.connect(self._on_grid_cell_clicked)
@@ -714,9 +716,11 @@ class MainWindow(QMainWindow):
 
     def _auto_detect_frames(self):
         """
-        Detects sprite frames in the currently loaded image and marks the detections on the canvas.
+        Start asynchronous detection of sprite frames in the currently loaded image.
         
-        If no image is loaded the method updates the status bar and returns. The method reads minimum width/height from the UI controls, disables the grid and enables auto-detect mode on the canvas, then calls the sprite detector with the canvas image path. If sprites are found it clears any existing selections, stores the detected rectangles in canvas.detected_sprites, updates the canvas display, and updates the status bar with the number detected. If no sprites are found or the canvas has no path, the method updates the status bar with an appropriate message.
+        If no image is loaded, updates the status bar and returns. Otherwise, sets up for detection by disabling the grid,
+        enabling auto-detect mode, and starting the detection process in a separate thread. Shows a "Detecting..." message
+        while processing.
         """
         if not self.canvas.pixmap or self.canvas.pixmap.isNull():
             self.statusBar().showMessage("No image loaded to detect frames from.")
@@ -733,28 +737,44 @@ class MainWindow(QMainWindow):
         self.auto_detect_toggle.setChecked(True)  # Enable auto-detect mode
         self.canvas.update_display()
 
-        # Save the current pixmap path to detect sprites
+        # Show busy message
+        self.statusBar().showMessage("Detecting sprites...")
+
+        # Start async detection
         if hasattr(self.canvas, 'current_path') and self.canvas.current_path:
-            detected_sprites = self.sprite_detector.detect_sprites(self.canvas.current_path, min_width, min_height)
-            
-            if detected_sprites:
-                # Clear any existing selections and detections
-                self.canvas.selected_cells = []
-                self.canvas.detected_sprites = []
-                
-                # Add detected sprites to the canvas as detected (not selected)
-                for rect in detected_sprites:
-                    self.canvas.detected_sprites.append(rect)
-                
-                # Update canvas display
-                self.canvas.update_display()
-                
-                # Don't add to tree automatically - just show on canvas
-                self.statusBar().showMessage(f"Auto-detected {len(detected_sprites)} sprites. Click on them to work with them.")
-            else:
-                self.statusBar().showMessage("No sprites detected in the image.")
+            # Connect the finished signal to our handler
+            self.sprite_detector.finished.connect(self._on_detection_finished)
+            # Start detection in background thread
+            self.sprite_detector.start_detection(self.canvas.current_path, min_width, min_height)
         else:
             self.statusBar().showMessage("Could not detect sprites: image path not available.")
+
+    def _on_detection_finished(self, detected_sprites):
+        """
+        Handle completion of asynchronous sprite detection.
+        
+        Called when the sprite detector thread completes. Processes the detected sprites by adding them to the canvas,
+        updating the display, and showing a status message. If no sprites were detected, shows an appropriate message.
+        
+        Parameters:
+            detected_sprites (list): List of QRect objects representing detected sprite frames, or None if detection failed.
+        """
+        if detected_sprites:
+            # Clear any existing selections and detections
+            self.canvas.selected_cells = []
+            self.canvas.detected_sprites = []
+            
+            # Add detected sprites to the canvas as detected (not selected)
+            for rect in detected_sprites:
+                self.canvas.detected_sprites.append(rect)
+            
+            # Update canvas display
+            self.canvas.update_display()
+            
+            # Don't add to tree automatically - just show on canvas
+            self.statusBar().showMessage(f"Auto-detected {len(detected_sprites)} sprites. Click on them to work with them.")
+        else:
+            self.statusBar().showMessage("No sprites detected in the image.")
 
     def _clear_detections(self):
         """
