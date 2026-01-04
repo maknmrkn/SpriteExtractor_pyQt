@@ -21,11 +21,15 @@ class Worker(QRunnable):
     """
     def __init__(self, fn, *args, **kwargs):
         """
-        Initialize the worker with a function and its arguments.
+        Create a Worker that will run the given callable in a background thread.
         
-        :param fn: The function to execute in the thread
-        :param args: Arguments to pass to the function
-        :param kwargs: Keyword arguments to pass to the function
+        Stores the callable and its positional and keyword arguments on the instance, creates a WorkerSignals object as `self.signals`, and injects a `progress_callback` entry into `self.kwargs` that is bound to `self.signals.progress` so the target callable can emit progress updates.
+        
+        Parameters:
+            fn (callable): The function to execute in the worker thread.
+            *args: Positional arguments to pass to `fn`.
+            **kwargs: Keyword arguments to pass to `fn`. Will be mutated to include a
+                `progress_callback` key referencing `self.signals.progress`.
         """
         super().__init__()
         self.fn = fn
@@ -38,7 +42,9 @@ class Worker(QRunnable):
 
     def run(self):
         """
-        Initialize the runner function with passed args and kwargs.
+        Execute the stored callable with the worker's arguments and emit completion or error signals.
+        
+        On successful completion, emits the worker's `finished` signal with the callable's return value. If an exception is raised, logs the traceback and emits the worker's `error` signal with a tuple `(exception type, exception instance, formatted traceback)`.
         """
         try:
             result = self.fn(*self.args, **self.kwargs)
