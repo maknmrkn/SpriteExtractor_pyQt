@@ -13,18 +13,36 @@ class LayoutManager:
     """مدیریت layout اصلی برنامه"""
     
     def __init__(self, main_window, widgets):
+        """
+        Initialize the LayoutManager with the main window and a registry of UI widgets.
+        
+        Parameters:
+            main_window (QMainWindow): The application's main window where the layout will be applied.
+            widgets (dict): A mapping of widget names to widget instances used to compose the layout.
+        
+        Detailed behavior:
+            Stores `main_window` and `widgets` on the instance and initializes `central_widget` and `splitter` to `None`.
+        """
         self.main_window = main_window
         self.widgets = widgets
         self.central_widget = None
         self.splitter = None
         
     def setup_layout(self):
-        """تنظیم layout اصلی برنامه"""
+        """
+        Set up the main application layout.
+        
+        Creates and configures the central widget and the primary horizontal splitter that divides the canvas and right-side panel.
+        """
         self._create_central_widget()
         self._create_main_splitter()
         
     def _create_central_widget(self):
-        """ایجاد ویجت مرکزی"""
+        """
+        Create and attach the main central widget for the window.
+        
+        Creates a QWidget, sets it as the main window's central widget, and installs a QVBoxLayout with zero margins and spacing. Stores the created widget on `self.central_widget` and the layout on `self.main_layout`.
+        """
         self.central_widget = QWidget()
         self.main_window.setCentralWidget(self.central_widget)
         
@@ -35,7 +53,11 @@ class LayoutManager:
         self.main_layout = main_layout
     
     def _create_main_splitter(self):
-        """ایجاد splitter اصلی بین canvas و پنل سمت راست"""
+        """
+        Create and insert the main horizontal splitter into the central layout.
+        
+        Constructs a QSplitter oriented horizontally, adds the canvas widget on the left and the right-side panel on the right, configures their size ratio to 3:1, and appends the splitter to the manager's main layout.
+        """
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         
         # اضافه کردن canvas به splitter
@@ -53,7 +75,14 @@ class LayoutManager:
         self.main_layout.addWidget(self.splitter)
     
     def _create_right_panel(self):
-        """ایجاد پنل سمت راست"""
+        """
+        Builds the right-side panel containing auxiliary widgets.
+        
+        The panel arranges the animation preview, sprite properties group, thumbnail grid, and sprite tree vertically with 5px margins and 10px spacing.
+        
+        Returns:
+            QWidget: A widget containing the assembled right-side layout.
+        """
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setSpacing(10)
@@ -75,7 +104,14 @@ class LayoutManager:
         return right_panel
     
     def _create_properties_group(self):
-        """ایجاد گروه properties"""
+        """
+        Create and return the "Sprite Properties" group box containing form rows for sprite geometry.
+        
+        The returned QGroupBox is titled "Sprite Properties", constrained to a maximum height of 150 pixels, and contains a QFormLayout with labeled rows for X, Y, Width, and Height populated from the manager's widget registry.
+        
+        Returns:
+            QGroupBox: A configured group box widget containing the properties form.
+        """
         properties_group = QGroupBox("Sprite Properties")
         properties_group.setMaximumHeight(150)
         
@@ -92,5 +128,10 @@ class LayoutManager:
         return properties_group
     
     def get_splitter(self):
-        """دریافت splitter اصلی"""
+        """
+        Access the main QSplitter that divides the central canvas and the right-side panel.
+        
+        Returns:
+            QSplitter | None: The primary splitter instance, or `None` if the layout has not been created yet.
+        """
         return self.splitter
