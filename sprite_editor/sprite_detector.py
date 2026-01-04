@@ -14,6 +14,11 @@ class SpriteDetector(QObject):
     finished = pyqtSignal(object)
     
     def __init__(self):
+        """
+        Initialize the SpriteDetector: obtain a global QThreadPool instance and configure basic logging for the object.
+        
+        Sets self.thread_pool to the global QThreadPool instance and creates a logger stored in self.logger. Also configures the basic logging level to INFO.
+        """
         super().__init__()
         self.thread_pool = QThreadPool.globalInstance()
         # Set up logging
@@ -37,7 +42,19 @@ class SpriteDetector(QObject):
 
     def _detect_sprites_impl(self, image_path, min_width=8, min_height=8, progress_callback=None):
         """
-        Internal implementation of sprite detection that runs in a background thread.
+        Detects sprites in the given image and returns their bounding rectangles.
+        
+        Parameters:
+            image_path (str): Filesystem path to the input image.
+            min_width (int): Minimum width in pixels for a detected sprite to be kept.
+            min_height (int): Minimum height in pixels for a detected sprite to be kept.
+            progress_callback (callable|None): Optional callable for progress updates (may be unused).
+        
+        Returns:
+            list[QRect]: List of bounding rectangles for detected sprites, sorted top-to-bottom then left-to-right.
+        
+        Raises:
+            Exception: Re-raises any exception encountered during image loading or processing.
         """
         try:
             self.logger.info(f"Starting sprite detection on {image_path}")
@@ -80,11 +97,23 @@ class SpriteDetector(QObject):
             raise e
 
     def _on_detection_complete(self, result):
-        """Handle completion of detection"""
+        """
+        Emit the finished signal with the detection result.
+        
+        Parameters:
+            result (list[QRect] | object): Detected sprite bounding rectangles (typically a list of QRect) or an empty list if detection failed.
+        """
         self.finished.emit(result)
 
     def _on_detection_error(self, error_info):
-        """Handle errors during detection"""
+        """
+        Handle an exception raised by the background detection worker and notify listeners.
+        
+        Logs the exception message, prints the traceback string, and emits an empty list via the `finished` signal to ensure the UI does not hang.
+        
+        Parameters:
+            error_info (tuple): A tuple of `(exc_type, value, tb_str)` where `exc_type` is the exception class, `value` is the exception instance, and `tb_str` is the formatted traceback string.
+        """
         exctype, value, tb_str = error_info
         self.logger.error(f"An error occurred during sprite detection: {str(value)}")
         print(tb_str)
@@ -93,31 +122,29 @@ class SpriteDetector(QObject):
 
     def detect_sprites(self, image_path, min_width=8, min_height=8):
         """
-        Detect sprites in an image by finding connected components or transparent boundaries.
-        This is the synchronous version - for UI responsiveness, use start_detection with the finished signal instead.
+        Detect sprites in an image and return their bounding rectangles. This is the synchronous version; use start_detection for non-blocking detection.
         
-        Args:
-            image_path: Path to the sprite sheet image
-            min_width: Minimum width of a sprite to be detected
-            min_height: Minimum height of a sprite to be detected
-            
+        Parameters:
+            image_path (str): Path to the sprite sheet image.
+            min_width (int): Minimum sprite width to include.
+            min_height (int): Minimum sprite height to include.
+        
         Returns:
-            List of QRect objects representing detected sprite rectangles
+            list[QRect]: Detected sprite bounding rectangles sorted by y (top-to-bottom) then x (left-to-right).
         """
         return self._detect_sprites_impl(image_path, min_width, min_height)
 
     def detect_by_grid_pattern(self, image_path, min_width=8, min_height=8):
         """
-        Alternative method to detect sprites by looking for grid-like patterns.
-        Note: This is still a synchronous method, but it's not currently used in the main UI flow.
+        Detects sprite bounding rectangles by identifying grid-like horizontal and vertical lines in a grayscale image.
         
-        Args:
-            image_path: Path to the sprite sheet image
-            min_width: Minimum width of a sprite to be detected
-            min_height: Minimum height of a sprite to be detected
-            
+        Parameters:
+            image_path (str): Path to the sprite sheet image.
+            min_width (int): Minimum width of a detected sprite (pixels).
+            min_height (int): Minimum height of a detected sprite (pixels).
+        
         Returns:
-            List of QRect objects representing detected sprite rectangles
+            list[QRect]: List of QRect objects for each detected sprite bounding box; returns an empty list if the image cannot be loaded or no suitable regions are found.
         """
         img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         

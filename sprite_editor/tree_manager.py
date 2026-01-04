@@ -42,9 +42,9 @@ class TreeManager:
 
     def setup_tree(self):
         """
-        Initialize and configure the sprite tree widget for the manager.
+        Set up and wire the sprite tree widget for this manager.
         
-        Calls the structure manager to build the tree, updates the manager's sprite_tree reference, enables a custom context menu, connects handlers for context-menu requests, item clicks, and item double-clicks, and replaces the tree's keyPressEvent with the manager's key handler.
+        Builds the tree via the structure manager, updates the manager's sprite_tree reference, enables a custom context menu, connects handlers for context-menu requests, item clicks, and item double-clicks, and preserves the tree's original keyPressEvent while installing the manager's key handler.
         """
         self.structure_manager.setup_tree()
         # Update the reference after setup
@@ -516,9 +516,9 @@ class TreeManager:
     # Tree event handlers
     def _on_tree_item_clicked(self, item, column):
         """
-        Handle a click on a tree item and update UI selection accordingly.
+        Handle a click on a tree item, forward it to the main window, and update the canvas selection for sprite items when appropriate.
         
-        If the main window defines a `_on_tree_item_clicked` handler, forward the click to it. If the clicked item represents a sprite (not a group) and stores a bounding tuple (x, y, w, h) in its UserRole, then when the main window canvas is in autodetect mode this will clear the canvas selection, attempt to locate the corresponding rectangle in the canvas, add it to the canvas selection if found, and request a canvas display update. Any exceptions raised while updating the canvas selection are caught and printed.
+        If the main window defines `_on_tree_item_clicked`, forwards the event to it. If the clicked item is a sprite (not a group) and its UserRole contains a `(x, y, w, h)` tuple, then when the main window's canvas is in autodetect mode this clears the canvas selection, attempts to locate the corresponding rectangle on the canvas, adds it to the canvas selection if found, and requests a canvas display update. Exceptions raised while updating the canvas selection are caught and printed.
         
         Parameters:
             item (QTreeWidgetItem): The clicked tree item.
@@ -548,9 +548,12 @@ class TreeManager:
 
     def _on_tree_item_double_clicked(self, item):
         """
-        Open the sprite editor for the double-clicked sprite tree item.
+        Open the sprite editor for a double-clicked tree item.
         
-        If the item represents a sprite (not a group), triggers editing of that sprite item. No action is taken for group items.
+        If the provided item represents a sprite (not a group), opens the sprite editor for that item; group items are ignored.
+        
+        Parameters:
+            item (QTreeWidgetItem): The tree item that was double-clicked.
         """
         if not self._is_group_item(item):
             self._edit_sprite_item(item)
