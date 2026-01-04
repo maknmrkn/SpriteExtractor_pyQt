@@ -1,7 +1,5 @@
-from PyQt6.QtWidgets import QTreeWidget, QTreeWidgetItem, QMenu, QAbstractItemView, QHeaderView, QInputDialog
+from PyQt6.QtWidgets import QTreeWidgetItem
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QCursor
-from .tree_item import ThumbnailTreeWidgetItem
 from .tree_structure_manager import TreeStructureManager
 from .tree_context_menu import TreeContextMenu
 from .sprite_operations import SpriteOperations
@@ -52,11 +50,16 @@ class TreeManager:
         # Update the reference after setup
         self.sprite_tree = self.structure_manager.sprite_tree
         
+        # Save reference to original keyPressEvent
+        self.sprite_tree.keyPressEvent_original = self.sprite_tree.keyPressEvent
+        
         # Connect signals
         self.sprite_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.sprite_tree.customContextMenuRequested.connect(self._show_tree_context_menu)
         self.sprite_tree.itemClicked.connect(self._on_tree_item_clicked)
         self.sprite_tree.itemDoubleClicked.connect(self._on_tree_item_double_clicked)
+        # Save reference to original keyPressEvent
+        self.sprite_tree.keyPressEvent_original = self.sprite_tree.keyPressEvent
         self.sprite_tree.keyPressEvent = self._on_tree_key_press
 
     # Delegate method calls to the appropriate modules
@@ -543,7 +546,7 @@ class TreeManager:
                 except Exception as e:
                     print(f"Error selecting sprite in canvas: {e}")
 
-    def _on_tree_item_double_clicked(self, item, column):
+    def _on_tree_item_double_clicked(self, item):
         """
         Open the sprite editor for the double-clicked sprite tree item.
         
@@ -577,4 +580,4 @@ class TreeManager:
                 self._edit_sprite_item(selected_items[0])
         else:
             # Call the original keyPressEvent for other keys
-            QTreeWidget.keyPressEvent(self.sprite_tree, event)
+            self.sprite_tree.keyPressEvent_original(event)
