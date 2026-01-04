@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QMainWindow, QStatusBar, QVBoxLayout, QWidget, QFileDialog, QSizePolicy, QToolBar, QSpinBox, QLabel, QHBoxLayout, QWidgetAction, QComboBox, QPushButton, QColorDialog, QDockWidget, QTreeWidget, QTreeWidgetItem, QHeaderView, QMenu, QAbstractItemView, QDialog, QVBoxLayout, QTreeWidget, QDialogButtonBox, QMessageBox, QFrame, QSplitter, QGroupBox, QFormLayout
+from PyQt6.QtWidgets import QMainWindow, QMenuBar, QStatusBar, QVBoxLayout, QWidget, QFileDialog, QSizePolicy, QToolBar, QSpinBox, QLabel, QHBoxLayout, QWidgetAction, QComboBox, QPushButton, QColorDialog, QDockWidget, QTreeWidget, QTreeWidgetItem, QHeaderView, QMenu, QAbstractItemView, QDialog, QVBoxLayout, QTreeWidget, QDialogButtonBox, QMessageBox, QFrame, QSplitter, QGroupBox, QFormLayout
 from PyQt6.QtGui import QCursor
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, QRect, QTimer
 from PyQt6.QtGui import QColor, QAction, QPixmap, QIcon
@@ -9,11 +9,6 @@ from .tree_manager import TreeManager
 from .ui_utils import UIUtils
 from .tree_item import ThumbnailTreeWidgetItem
 from .sprite_detector import SpriteDetector
-from .ui.menu_manager import MenuManager
-from .ui.toolbar_manager import ToolbarManager
-from .ui.layout_manager import LayoutManager
-from .ui.signal_manager import SignalManager
-from .ui.style_manager import StyleManager
 
 
 class MainWindow(QMainWindow):
@@ -30,37 +25,294 @@ class MainWindow(QMainWindow):
         # Initialize group counters
         self.group_counters = {}
 
-        # Initialize UI components
-        self.canvas = Canvas(self)
-        self.thumbnail_grid = ThumbnailWidget()
-        self.animation_preview = AnimationPreviewWidget()
-        self.tree_manager = TreeManager(self)
-        self.ui_utils = UIUtils(self)
+        # Create central widget with a vertical layout
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
 
+        # Create a horizontal splitter to separate canvas and right panel
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Canvas
+        self.canvas = Canvas(self)
+        self.canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        splitter.addWidget(self.canvas)
+
+        # Right panel containing the animation preview, properties, tree and thumbnails
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        
+        # Create the animation preview widget
+        self.animation_preview = AnimationPreviewWidget()
+        right_layout.addWidget(self.animation_preview)
+        
+        # Create a group box for sprite properties
+        self.properties_group = QGroupBox("Sprite Properties")
+        self.properties_group.setMaximumHeight(150)  # Limit height to keep space for tree
+        properties_layout = QFormLayout(self.properties_group)
+        
+        # Add properties fields
+        self.x_label = QLabel("-")
+        self.y_label = QLabel("-")
+        self.width_label = QLabel("-")
+        self.height_label = QLabel("-")
+        
+        properties_layout.addRow("X:", self.x_label)
+        properties_layout.addRow("Y:", self.y_label)
+        properties_layout.addRow("Width:", self.width_label)
+        properties_layout.addRow("Height:", self.height_label)
+        
+        right_layout.addWidget(self.properties_group)
+        
+        # Create the thumbnail grid widget
+        self.thumbnail_grid = ThumbnailWidget()
+        right_layout.addWidget(self.thumbnail_grid)
+        
         # Initialize managers
+        self.tree_manager = TreeManager(self)
         self.tree_manager.setup_tree()
-        self.layout_manager = LayoutManager(self)
-        self.menu_manager = MenuManager(self)
-        self.toolbar_manager = ToolbarManager(self)
-        self.signal_manager = SignalManager(self)
-        self.style_manager = StyleManager(self)
+        self.ui_utils = UIUtils(self)
+        
+        right_layout.addWidget(self.tree_manager.sprite_tree)
+        
+        splitter.addWidget(right_panel)
+        splitter.setStretchFactor(0, 3)  # Canvas takes 3/4 of space
+        splitter.setStretchFactor(1, 1)  # Right panel takes 1/4 of space
+        
+        main_layout.addWidget(splitter)
 
         # Initialize sprite detector
         self.sprite_detector = SpriteDetector()
         # Connect the finished signal to the handler
         self.sprite_detector.finished.connect(self._on_detection_finished)
 
+        # Connect to the grid cell clicked signal (for highlighting)
+        self.canvas.grid_cell_clicked.connect(self._on_grid_cell_clicked)
+        # Connect to the grid cell right-clicked signal (for moving to group)
+        self.canvas.grid_cell_right_clicked.connect(self.tree_manager._on_grid_cell_right_clicked)
+        # Connect to the multi-grid selection signal
+        self.canvas.multi_grid_selection.connect(self.tree_manager._on_multi_grid_selection)
+        # Connect thumbnail clicked signal
+        self.thumbnail_grid.thumbnail_clicked.connect(self._on_thumbnail_clicked)
+
+        # Menu Bar
+        self._create_menu_bar()
+
+        # Toolbar for Grid Settings
+        self._create_grid_toolbar()
+
         # Auto-detection toolbar (initially hidden)
+        self._create_auto_detect_toolbar()
         self.auto_detect_toolbar.setVisible(False)
 
+        # Status Bar
+        self.setStatusBar(QStatusBar())
+        self.statusBar().showMessage("Ready")
+
     def _create_menu_bar(self):
-        pass  # Handled by MenuManager
+        menu_bar: QMenuBar = self.menuBar()
+
+        # File Menu
+        file_menu = menu_bar.addMenu("&File")
+        open_action = file_menu.addAction("Open Sprite Sheet...")
+        open_action.setShortcut("Ctrl+O")
+        open_action.triggered.connect(self.open_file)
+
+        save_action = file_menu.addAction("Save Frames As...")
+        save_action.setShortcut("Ctrl+S")
+        # TODO: Connect to save_frames method
+
+        file_menu.addSeparator()
+        exit_action = file_menu.addAction("Exit")
+        exit_action.setShortcut("Ctrl+Q")
+        exit_action.triggered.connect(self.close)
+
+        # Edit Menu
+        edit_menu = menu_bar.addMenu("&Edit")
+        extract_action = edit_menu.addAction("Auto-detect Frames")
+        extract_action.triggered.connect(self._auto_detect_frames)
 
     def _create_grid_toolbar(self):
-        pass  # Handled by ToolbarManager
+        """
+        Create and attach the "Grid Settings" toolbar that exposes controls for configuring the canvas grid and related visual options.
+        
+        The toolbar includes:
+        - a "Show Grid" toggle (checked by default);
+        - grid size controls (width and height, default 32, range 8–2048, step 8);
+        - padding X/Y and spacing X/Y controls (default 0, range 0–128);
+        - a line style selector with "Solid" and "Dotted" options;
+        - a Grid Color button (default green) and a BG Color button (default dark gray).
+        
+        Each control is wired to the corresponding MainWindow handler to update the canvas when changed.
+        """
+        toolbar = QToolBar("Grid Settings")
+        toolbar.setIconSize(QSize(16, 16))
+        self.addToolBar(toolbar)
+
+        # Show Grid Toggle
+        self.show_grid_toggle = toolbar.addAction("Show Grid")
+        self.show_grid_toggle.setCheckable(True)
+        self.show_grid_toggle.setChecked(True)  # Default to checked
+        self.show_grid_toggle.triggered.connect(self._on_grid_toggled)
+
+        toolbar.addSeparator()
+
+        # Grid Size (Width and Height)
+        toolbar.addWidget(QLabel("Grid:"))
+        
+        # Grid Width
+        self.grid_width_spinbox = QSpinBox()
+        self.grid_width_spinbox.setRange(8, 2048)
+        self.grid_width_spinbox.setValue(32)
+        self.grid_width_spinbox.setSingleStep(8)
+        self.grid_width_spinbox.valueChanged.connect(self._on_grid_width_changed)
+        width_widget = QWidget()
+        width_widget.setLayout(QHBoxLayout())
+        width_widget.layout().addWidget(self.grid_width_spinbox)
+        width_widget.setMaximumWidth(70)
+        toolbar.addWidget(width_widget)
+        
+        toolbar.addWidget(QLabel("×"))  # Multiplication sign
+        
+        # Grid Height
+        self.grid_height_spinbox = QSpinBox()
+        self.grid_height_spinbox.setRange(8, 2048)
+        self.grid_height_spinbox.setValue(32)
+        self.grid_height_spinbox.setSingleStep(8)
+        self.grid_height_spinbox.valueChanged.connect(self._on_grid_height_changed)
+        height_widget = QWidget()
+        height_widget.setLayout(QHBoxLayout())
+        height_widget.layout().addWidget(self.grid_height_spinbox)
+        height_widget.setMaximumWidth(70)
+        toolbar.addWidget(height_widget)
+
+        toolbar.addSeparator()
+
+        # Padding X
+        toolbar.addWidget(QLabel("Padding X:"))
+        self.padding_x_spinbox = QSpinBox()
+        self.padding_x_spinbox.setRange(0, 128)
+        self.padding_x_spinbox.setValue(0)
+        self.padding_x_spinbox.valueChanged.connect(self._on_padding_x_changed)
+        padx_widget = QWidget()
+        padx_widget.setLayout(QHBoxLayout())
+        padx_widget.layout().addWidget(self.padding_x_spinbox)
+        padx_widget.setMaximumWidth(80)
+        toolbar.addWidget(padx_widget)
+
+        # Padding Y
+        toolbar.addWidget(QLabel("Padding Y:"))
+        self.padding_y_spinbox = QSpinBox()
+        self.padding_y_spinbox.setRange(0, 128)
+        self.padding_y_spinbox.setValue(0)
+        self.padding_y_spinbox.valueChanged.connect(self._on_padding_y_changed)
+        pady_widget = QWidget()
+        pady_widget.setLayout(QHBoxLayout())
+        pady_widget.layout().addWidget(self.padding_y_spinbox)
+        pady_widget.setMaximumWidth(80)
+        toolbar.addWidget(pady_widget)
+
+        toolbar.addSeparator()
+
+        # Spacing X
+        toolbar.addWidget(QLabel("Spacing X:"))
+        self.spacing_x_spinbox = QSpinBox()
+        self.spacing_x_spinbox.setRange(0, 128)
+        self.spacing_x_spinbox.setValue(0)
+        self.spacing_x_spinbox.valueChanged.connect(self._on_spacing_x_changed)
+        spacex_widget = QWidget()
+        spacex_widget.setLayout(QHBoxLayout())
+        spacex_widget.layout().addWidget(self.spacing_x_spinbox)
+        spacex_widget.setMaximumWidth(80)
+        toolbar.addWidget(spacex_widget)
+
+        # Spacing Y
+        toolbar.addWidget(QLabel("Spacing Y:"))
+        self.spacing_y_spinbox = QSpinBox()
+        self.spacing_y_spinbox.setRange(0, 128)
+        self.spacing_y_spinbox.setValue(0)
+        self.spacing_y_spinbox.valueChanged.connect(self._on_spacing_y_changed)
+        spacey_widget = QWidget()
+        spacey_widget.setLayout(QHBoxLayout())
+        spacey_widget.layout().addWidget(self.spacing_y_spinbox)
+        spacey_widget.setMaximumWidth(80)
+        toolbar.addWidget(spacey_widget)
+
+        toolbar.addSeparator()
+
+        # Grid Line Style
+        toolbar.addWidget(QLabel("Line:"))
+        self.line_style_combo = QComboBox()
+        self.line_style_combo.addItems(["Solid", "Dotted"])
+        self.line_style_combo.currentTextChanged.connect(self._on_line_style_changed)
+        toolbar.addWidget(self.line_style_combo)
+
+        toolbar.addSeparator()
+
+        # Grid Color Button
+        self.grid_color_button = QPushButton("Grid Color")
+        self.grid_color_button.setFixedSize(90, 24)
+        self.grid_color_button.clicked.connect(self._on_choose_grid_color)
+        toolbar.addWidget(self.grid_color_button)
+        self._update_grid_color_button(QColor(0, 255, 0))  # Default green
+
+        # Background Color Button
+        self.bg_color_button = QPushButton("BG Color")
+        self.bg_color_button.setFixedSize(90, 24)
+        self.bg_color_button.clicked.connect(self._on_choose_bg_color)
+        toolbar.addWidget(self.bg_color_button)
+        self._update_bg_color_button(QColor(25, 25, 25))  # Default dark gray
 
     def _create_auto_detect_toolbar(self):
-        pass  # Handled by ToolbarManager
+        """
+        Add the auto-detection toolbar to the main window.
+        
+        Creates and configures the "Auto Detection Settings" toolbar with:
+        - a checkable "Auto Detection Mode" toggle connected to _toggle_auto_detect_mode,
+        - spin boxes for minimum detection width and height (1–2048, default 8),
+        - a "Detect Sprites" action connected to _auto_detect_frames,
+        - a "Clear Detections" action connected to _clear_detections.
+        
+        The toolbar is added to the top tool bar area and its widgets are stored as instance attributes for later access.
+        """
+        self.auto_detect_toolbar = QToolBar("Auto Detection Settings")
+        self.auto_detect_toolbar.setIconSize(QSize(16, 16))
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.auto_detect_toolbar)
+
+        # Toggle for auto-detection mode
+        self.auto_detect_toggle = self.auto_detect_toolbar.addAction("Auto Detection Mode")
+        self.auto_detect_toggle.setCheckable(True)
+        self.auto_detect_toggle.setChecked(False)
+        self.auto_detect_toggle.triggered.connect(self._toggle_auto_detect_mode)
+
+        self.auto_detect_toolbar.addSeparator()
+
+        # Min width for detection
+        self.auto_detect_toolbar.addWidget(QLabel("Min Width:"))
+        self.min_width_spinbox = QSpinBox()
+        self.min_width_spinbox.setRange(1, 2048)
+        self.min_width_spinbox.setValue(8)
+        self.min_width_spinbox.setSingleStep(1)
+        self.min_width_spinbox.setMaximumWidth(70)
+        self.auto_detect_toolbar.addWidget(self.min_width_spinbox)
+
+        # Min height for detection
+        self.auto_detect_toolbar.addWidget(QLabel("Min Height:"))
+        self.min_height_spinbox = QSpinBox()
+        self.min_height_spinbox.setRange(1, 2048)
+        self.min_height_spinbox.setValue(8)
+        self.min_height_spinbox.setSingleStep(1)
+        self.min_height_spinbox.setMaximumWidth(70)
+        self.auto_detect_toolbar.addWidget(self.min_height_spinbox)
+
+        # Auto-detect button
+        self.auto_detect_button = self.auto_detect_toolbar.addAction("Detect Sprites")
+        self.auto_detect_button.triggered.connect(self._auto_detect_frames)
+
+        # Clear detections button
+        self.clear_detections_button = self.auto_detect_toolbar.addAction("Clear Detections")
+        self.clear_detections_button.triggered.connect(self._clear_detections)
 
     def _toggle_auto_detect_mode(self, checked):
         """
