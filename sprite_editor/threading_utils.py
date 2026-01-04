@@ -1,5 +1,4 @@
-from PyQt6.QtCore import QObject, QRunnable, QThreadPool, pyqtSignal, QMetaObject, Q_ARG
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtCore import QObject, QRunnable, pyqtSignal
 import traceback
 import logging
 

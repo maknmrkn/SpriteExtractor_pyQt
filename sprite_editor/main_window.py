@@ -1,7 +1,6 @@
-from PyQt6.QtWidgets import QMainWindow, QMenuBar, QStatusBar, QVBoxLayout, QWidget, QFileDialog, QSizePolicy, QToolBar, QSpinBox, QLabel, QHBoxLayout, QWidgetAction, QComboBox, QPushButton, QColorDialog, QDockWidget, QTreeWidget, QTreeWidgetItem, QHeaderView, QMenu, QAbstractItemView, QDialog, QVBoxLayout, QTreeWidget, QDialogButtonBox, QMessageBox, QFrame, QSplitter, QGroupBox, QFormLayout
-from PyQt6.QtGui import QCursor
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, QRect, QTimer
-from PyQt6.QtGui import QColor, QAction, QPixmap, QIcon
+from PyQt6.QtWidgets import QMainWindow, QMenuBar, QStatusBar, QWidget, QFileDialog, QSizePolicy, QToolBar, QSpinBox, QLabel, QHBoxLayout, QComboBox, QPushButton, QColorDialog, QTreeWidgetItem, QMenu, QVBoxLayout, QTreeWidget, QMessageBox, QSplitter, QGroupBox, QFormLayout
+from PyQt6.QtCore import Qt, QSize, QRect
+from PyQt6.QtGui import QColor
 from .canvas import Canvas
 from .thumbnail_grid import ThumbnailWidget
 from .animation_preview import AnimationPreviewWidget
@@ -592,9 +591,8 @@ class MainWindow(QMainWindow):
         print(f"DEBUG: _on_grid_cell_clicked called with ({x}, {y}, {width}x{height})")
         # This method is now just for handling the highlight
         # The actual logic is handled in Canvas class
-        pass
 
-    def _on_tree_item_clicked(self, item, column):
+    def _on_tree_item_clicked(self, item, _column):
         """
         Update the animation preview and the X/Y/Width/Height property labels based on the clicked tree item.
         
@@ -618,7 +616,7 @@ class MainWindow(QMainWindow):
             self.animation_preview.set_sprites([])
             
             # Extract coordinates from the text if it contains coordinate info
-            text = item.text(0)
+            item.text(0)
             # If the item was created from grid selection, it might have coordinates in its data
             if hasattr(item, 'data') and item.data(0, Qt.ItemDataRole.UserRole) is not None:
                 coords = item.data(0, Qt.ItemDataRole.UserRole)
@@ -688,7 +686,6 @@ class MainWindow(QMainWindow):
         print(f"DEBUG: _on_grid_cell_right_clicked called with ({x}, {y}, {width}x{height})")
         # This method is now just a proxy to the tree manager
         # In auto-detection mode, we'll use multi-selection instead
-        pass
 
     def _extract_sprite_pixmap(self, x, y, width, height):
         """

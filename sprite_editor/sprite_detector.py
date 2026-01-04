@@ -1,7 +1,6 @@
 import cv2
-import numpy as np
 from PyQt6.QtCore import QRect, QObject, pyqtSignal
-from .threading_utils import Worker, WorkerSignals
+from .threading_utils import Worker
 from PyQt6.QtCore import QThreadPool
 import logging
 

@@ -1,6 +1,5 @@
 from PyQt6.QtWidgets import QWidget, QGridLayout, QLabel, QScrollArea, QFrame
 from PyQt6.QtCore import pyqtSignal, Qt
-from PyQt6.QtGui import QPixmap, QPainter
 
 
 class ThumbnailWidget(QScrollArea):

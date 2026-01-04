@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QLabel, QScrollArea, QSizePolicy, QMenu
-from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor, QImage, QPaintDevice
+from PyQt6.QtWidgets import QLabel, QScrollArea, QSizePolicy
+from PyQt6.QtGui import QPixmap, QPainter, QPen, QColor
 from PyQt6.QtCore import Qt, QRect, pyqtSignal
 
 

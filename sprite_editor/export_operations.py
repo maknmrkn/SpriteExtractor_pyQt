@@ -1,7 +1,6 @@
 import os
-from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from .threading_utils import Worker, WorkerSignals
+from PyQt6.QtWidgets import QFileDialog, QMessageBox
+from .threading_utils import Worker
 from PyQt6.QtCore import QThreadPool
 import logging
 
@@ -98,7 +97,7 @@ class ExportOperations:
         worker.signals.error.connect(self._export_group_error)
         self.thread_pool.start(worker)
 
-    def _export_group_impl(self, group_item, dir_path, progress_callback=None):
+    def _export_group_impl(self, group_item, dir_path, _progress_callback=None):
         """
         Export all non-group child sprites of the given group item to image files in the specified directory.
         
@@ -202,7 +201,7 @@ class ExportOperations:
         worker.signals.error.connect(self._export_gif_error)
         self.thread_pool.start(worker)
 
-    def _export_group_as_gif_impl(self, group_item, path, progress_callback=None):
+    def _export_group_as_gif_impl(self, group_item, path, _progress_callback=None):
         """
         Export all non-group sprite children of `group_item` as an animated GIF saved to `path`.
         
@@ -237,7 +236,6 @@ class ExportOperations:
             # Save as GIF (you might need to implement GIF saving)
             try:
                 # Convert QPixmap to QImage and save
-                from PIL import Image
                 images = []
                 for i, pixmap in enumerate(sprite_pixmaps):
                     image = pixmap.toImage()
@@ -317,7 +315,7 @@ class ExportOperations:
         worker.signals.error.connect(self._export_selected_error)
         self.thread_pool.start(worker)
 
-    def _export_selected_sprites_impl(self, selected_rects, dir_path, progress_callback=None):
+    def _export_selected_sprites_impl(self, selected_rects, dir_path, _progress_callback=None):
         """
         Export sprites defined by a sequence of rectangles to PNG files in the given directory.
         

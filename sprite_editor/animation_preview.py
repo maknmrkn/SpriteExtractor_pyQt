@@ -1,7 +1,6 @@
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QSpinBox
-from PyQt6.QtGui import QColor, QPixmap
-from PyQt6.QtCore import Qt, QTimer, QSize
-from PyQt6.QtWidgets import QFrame
+from PyQt6.QtCore import Qt, QTimer
+
 
 
 class AnimationPreviewWidget(QFrame):

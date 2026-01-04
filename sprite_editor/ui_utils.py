@@ -1,6 +1,5 @@
-from PyQt6.QtWidgets import QMainWindow, QMenuBar, QStatusBar, QVBoxLayout, QWidget, QFileDialog, QSizePolicy, QToolBar, QSpinBox, QLabel, QHBoxLayout, QWidgetAction, QComboBox, QPushButton, QColorDialog, QDockWidget, QTreeWidget, QTreeWidgetItem, QHeaderView, QMenu, QAbstractItemView, QDialog, QVBoxLayout, QDialogButtonBox, QMessageBox, QFrame, QSplitter, QGroupBox, QFormLayout
-from PyQt6.QtCore import Qt, QSize, pyqtSignal, QRect
-from PyQt6.QtGui import QColor, QAction, QPixmap, QIcon
+from PyQt6.QtWidgets import QColorDialog
+from PyQt6.QtGui import QColor
 
 
 class UIUtils:
