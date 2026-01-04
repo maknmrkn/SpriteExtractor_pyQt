@@ -97,7 +97,7 @@ class ExportOperations:
         worker.signals.error.connect(self._export_group_error)
         self.thread_pool.start(worker)
 
-    def _export_group_impl(self, group_item, dir_path, _progress_callback=None):
+    def _export_group_impl(self, group_item, dir_path, progress_callback=None):
         """
         Export all non-group child sprites of the given group item to image files in the specified directory.
         
@@ -106,6 +106,7 @@ class ExportOperations:
         Parameters:
         	group_item: The tree item representing a group; only its direct (non-group) children are exported.
         	dir_path: The directory path where exported image files will be written.
+        :param progress_callback:
         	progress_callback (callable, optional): Optional callback for progress updates (not required).
         
         Returns:
@@ -166,7 +167,7 @@ class ExportOperations:
         Parameters:
             error_info (tuple): A tuple (exc_type, value, traceback_str) describing the error; `value` is the exception instance whose message is shown to the user.
         """
-        exctype, value, tb_str = error_info
+        _exctype, value, _tb_str = error_info
         self.logger.error(f"Failed to export group: {str(value)}")
         self.main_window.statusBar().showMessage(f"Failed to export group: {str(value)}", 5000)
         # Show error in a message box as well
@@ -201,7 +202,7 @@ class ExportOperations:
         worker.signals.error.connect(self._export_gif_error)
         self.thread_pool.start(worker)
 
-    def _export_group_as_gif_impl(self, group_item, path, _progress_callback=None):
+    def _export_group_as_gif_impl(self, group_item, path, progress_callback=None):
         """
         Export all non-group sprite children of `group_item` as an animated GIF saved to `path`.
         
@@ -237,7 +238,7 @@ class ExportOperations:
             try:
                 # Convert QPixmap to QImage and save
                 images = []
-                for i, pixmap in enumerate(sprite_pixmaps):
+                for _, pixmap in enumerate(sprite_pixmaps):
                     image = pixmap.toImage()
                     if not image.isNull():
                         # Convert to PIL Image
@@ -283,7 +284,7 @@ class ExportOperations:
         Description:
             Logs the error, shows the error message in the main window status bar for 5 seconds, and displays a warning dialog informing the user that the Pillow library is required for GIF export.
         """
-        exctype, value, tb_str = error_info
+        _exctype, value, _tb_str = error_info
         self.logger.error(f"Failed to export GIF: {str(value)}")
         self.main_window.statusBar().showMessage(f"Failed to export GIF: {str(value)}", 5000)
         QMessageBox.warning(self.sprite_tree, "Error", f"PIL (Pillow) library is required for GIF export.")
@@ -315,7 +316,7 @@ class ExportOperations:
         worker.signals.error.connect(self._export_selected_error)
         self.thread_pool.start(worker)
 
-    def _export_selected_sprites_impl(self, selected_rects, dir_path, _progress_callback=None):
+    def _export_selected_sprites_impl(self, selected_rects, dir_path, progress_callback=None):
         """
         Export sprites defined by a sequence of rectangles to PNG files in the given directory.
         
@@ -369,7 +370,7 @@ class ExportOperations:
         Parameters:
             error_info (tuple): A tuple of (exception type, exception value, traceback string) describing the error.
         """
-        exctype, value, tb_str = error_info
+        _exctype, value, _tb_str = error_info
         self.logger.error(f"Failed to export selected sprites: {str(value)}")
         self.main_window.statusBar().showMessage(f"Failed to export selected sprites: {str(value)}", 5000)
 

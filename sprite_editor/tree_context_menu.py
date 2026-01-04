@@ -130,7 +130,7 @@ class TreeContextMenu:
             for group in groups:
                 # Create action with group icon
                 action = group_menu.addAction(f"📁 {group.text(0)}")
-                action.triggered.connect(lambda checked, g=group: 
+                action.triggered.connect(lambda _checked, g=group: 
                                        self.tree_manager._add_sprite_to_group(g, x, y, width, height))
             
             # Add separator
@@ -189,7 +189,7 @@ class TreeContextMenu:
             
             for group in groups:
                 action = group_menu.addAction(f"📁 {group.text(0)}")
-                action.triggered.connect(lambda checked, g=group: 
+                action.triggered.connect(lambda _checked, g=group: 
                                        self.tree_manager._add_sprites_to_group(g, selected_rects))
             
             menu.addSeparator()

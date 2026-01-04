@@ -113,7 +113,7 @@ class SpriteDetector(QObject):
         Parameters:
             error_info (tuple): A tuple of `(exc_type, value, tb_str)` where `exc_type` is the exception class, `value` is the exception instance, and `tb_str` is the formatted traceback string.
         """
-        exctype, value, tb_str = error_info
+        _exctype, value, tb_str = error_info
         self.logger.error(f"An error occurred during sprite detection: {str(value)}")
         print(tb_str)
         # Emit empty result to avoid hanging the UI

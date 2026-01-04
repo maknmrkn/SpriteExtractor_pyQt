@@ -65,7 +65,7 @@ class ThumbnailWidget(QScrollArea):
         self.grid_layout.addWidget(label, row, col)
         self.thumbnail_labels.append(label)
     
-    def _on_thumbnail_clicked(self, event, label):
+    def _on_thumbnail_clicked(self, _event, label):
         """Handle thumbnail click event"""
         item_data = label.property("item_data")
         if item_data:
