@@ -15,22 +15,22 @@ class WidgetInitializer:
     
     def __init__(self, main_window):
         """
-        Initialize the WidgetInitializer with a reference to the main application window.
+        Initialize the WidgetInitializer with the application's main window and prepare the widget storage.
         
         Parameters:
-            main_window: The main application window used as the parent for created widgets; stored on the instance as `self.main_window`.
+            main_window: The application's main window object used as parent/context when creating widgets.
         """
         self.main_window = main_window
         self.widgets = {}
         
     def initialize_widgets(self):
         """
-        Create and initialize all main application widgets and register them in the instance widget store.
-        
-        The method constructs the canvas, animation preview, thumbnail grid, tree manager (and its sprite tree), sprite detector, and property labels, storing each under a descriptive key in self.widgets, then returns that dictionary.
+        Create and initialize all main UI widgets for the application.
         
         Returns:
-            dict: Mapping of widget names (e.g., 'canvas', 'animation_preview', 'thumbnail_grid', 'tree_manager', 'sprite_tree', 'sprite_detector', 'x_label', 'y_label', 'width_label', 'height_label') to their created widget instances.
+            widgets (dict): Mapping of widget keys (e.g., 'canvas', 'animation_preview', 'thumbnail_grid',
+            'tree_manager', 'sprite_tree', 'sprite_detector', 'x_label', 'y_label', 'width_label', 'height_label')
+            to their corresponding widget instances.
         """
         self._create_canvas()
         self._create_animation_preview()
@@ -43,9 +43,7 @@ class WidgetInitializer:
     
     def _create_canvas(self):
         """
-        Create and configure the main drawing canvas and store it in the widgets registry.
-        
-        Creates a Canvas attached to the main window, sets its size policy to expand horizontally and vertically, and stores it under the 'canvas' key in self.widgets.
+        Create a Canvas widget, configure it to expand in both directions, and store it in self.widgets under the key 'canvas'.
         """
         canvas = Canvas(self.main_window)
         canvas.setSizePolicy(canvas.sizePolicy().Policy.Expanding, 
@@ -54,9 +52,9 @@ class WidgetInitializer:
     
     def _create_animation_preview(self):
         """
-        Create and register the animation preview widget.
+        Create and store the animation preview widget.
         
-        Instantiates an AnimationPreviewWidget and stores it in self.widgets under the key 'animation_preview'.
+        Creates an AnimationPreviewWidget instance and places it in self.widgets under the key 'animation_preview'.
         """
         preview = AnimationPreviewWidget()
         self.widgets['animation_preview'] = preview
@@ -65,16 +63,16 @@ class WidgetInitializer:
         """
         Create and register the thumbnail grid widget.
         
-        Instantiates a ThumbnailWidget and stores it in self.widgets under the key 'thumbnail_grid'.
+        Creates a ThumbnailWidget instance and stores it in self.widgets under the key 'thumbnail_grid'.
         """
         thumbnail_grid = ThumbnailWidget()
         self.widgets['thumbnail_grid'] = thumbnail_grid
     
     def _create_tree_manager(self):
         """
-        Create and initialize the tree manager and store it in the widget registry.
+        Initialize and register the TreeManager and its sprite tree in the widget registry.
         
-        Instantiates a TreeManager for the main window, calls its setup_tree() method to initialize the tree structure, and stores the manager under 'tree_manager' and its sprite_tree reference under 'sprite_tree' in self.widgets.
+        Creates a TreeManager bound to the main window, initializes its tree, and stores the manager under 'tree_manager' and its `sprite_tree` under 'sprite_tree' in self.widgets.
         """
         tree_manager = TreeManager(self.main_window)
         tree_manager.setup_tree()
@@ -83,18 +81,18 @@ class WidgetInitializer:
     
     def _create_sprite_detector(self):
         """
-        Create and register a SpriteDetector instance.
+        Create a SpriteDetector instance and register it in the initializer's widgets dictionary.
         
-        Instantiates a SpriteDetector and stores it in self.widgets under the key 'sprite_detector'.
+        The created SpriteDetector is stored under the 'sprite_detector' key in self.widgets.
         """
         sprite_detector = SpriteDetector()
         self.widgets['sprite_detector'] = sprite_detector
     
     def _create_property_labels(self):
         """
-        Create and store four QLabel instances representing sprite property values.
+        Create QLabel widgets for sprite property display and store them in self.widgets.
         
-        Creates QLabel widgets initialized with "-" and stores them in self.widgets under the keys 'x_label', 'y_label', 'width_label', and 'height_label'.
+        Each label is initialized with "-" and stored under the keys 'x_label', 'y_label', 'width_label', and 'height_label'.
         """
         from PyQt6.QtWidgets import QLabel
         

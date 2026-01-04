@@ -11,23 +11,19 @@ class MenuManager:
     
     def __init__(self, main_window):
         """
-        Create a MenuManager bound to a main window and initialize its menu state.
+        Initialize the MenuManager with the application's main window.
         
         Parameters:
-            main_window: The application's main window (QMainWindow or compatible) that MenuManager will control. It is expected to implement UI handlers used by menu actions (for example: `open_file`, `save_frames`, `export_selection`, `show_grid_settings`, `clear_selection`, `toggle_grid_toolbar`, `toggle_detect_toolbar`, and `close`).
-        
-        Attributes set:
-            main_window: Reference to the provided main window.
-            menu_bar: Placeholder for the window's menu bar (initialized to None).
+            main_window (QMainWindow): The application's main window used to attach menus and to call window-specific handlers (e.g., open_file, save_frames, toggle_grid_toolbar).
         """
         self.main_window = main_window
         self.menu_bar = None
         
     def setup_menus(self):
         """
-        Initialize and attach the application's main menu bar to the main window.
+        Initialize and populate the main window's menu bar.
         
-        This sets the MenuManager.menu_bar from the main window and creates the File, Edit, View, and Help menus.
+        Creates the File, Edit, View, and Help menus and attaches them to the main window's menu bar.
         """
         self.menu_bar = self.main_window.menuBar()
         
@@ -39,13 +35,9 @@ class MenuManager:
     
     def _create_file_menu(self):
         """
-        Create the "File" menu on the menu bar and populate it with common file actions.
+        Create and add the File menu to the application's menu bar with standard file-related actions.
         
-        Adds the following actions and wiring:
-        - "Open Sprite Sheet..." (Ctrl+O) → calls main_window.open_file.
-        - "Save Frames As..." (Ctrl+S) → calls this manager's _on_save_frames.
-        - "Export" submenu containing "Export Selection..." → calls this manager's _on_export_selection.
-        - "Exit" (Ctrl+Q) → calls main_window.close.
+        The menu includes actions for opening a sprite sheet, saving frames, an Export submenu with "Export Selection...", and an Exit action; each action is connected to the appropriate handler on the main window.
         """
         file_menu = self.menu_bar.addMenu("&File")
         
@@ -79,9 +71,12 @@ class MenuManager:
     
     def _create_edit_menu(self):
         """
-        Create the Edit menu and populate it with edit-related actions.
+        Create the Edit menu and add its actions to the application's menu bar.
         
-        Adds "Auto-detect Frames", "Grid Settings...", and "Clear Selection" (shortcut Ctrl+D) actions, with triggers connected to the main window or MenuManager slot handlers.
+        Adds the following actions to the Edit menu:
+        - "Auto-detect Frames": triggers main_window._auto_detect_frames.
+        - "Grid Settings...": opens grid settings via _on_grid_settings.
+        - "Clear Selection" (Ctrl+D): clears the current selection via _on_clear_selection.
         """
         edit_menu = self.menu_bar.addMenu("&Edit")
         
@@ -105,9 +100,9 @@ class MenuManager:
     
     def _create_view_menu(self):
         """
-        Create the View menu and populate it with view-related actions.
+        Create the View menu and add its checkable actions to the application's menu bar.
         
-        Adds a checkable "Show Grid" action (checked by default) that toggles the main window's grid visibility, and two checkable toolbar visibility actions: "Grid Toolbar" (checked by default) which invokes the manager's grid-toolbar toggle handler, and "Detection Toolbar" (unchecked by default) which invokes the detection-toolbar toggle handler.
+        Adds a "Show Grid" action (checked by default) that controls grid visibility, a "Grid Toolbar" toggle (checked by default) that shows or hides the grid toolbar, and a "Detection Toolbar" toggle (unchecked by default) that shows or hides the detection toolbar. Each action is added to the View menu and wired to the corresponding handler on the main window or MenuManager.
         """
         view_menu = self.menu_bar.addMenu("&View")
         
@@ -134,9 +129,9 @@ class MenuManager:
     
     def _create_help_menu(self):
         """
-        Create the Help menu on the menu bar and add About and Documentation actions.
+        Create the Help menu and add About and Documentation actions.
         
-        Adds an "About Sprite Editor" action that triggers the _on_about handler and a "Documentation" action that triggers the _on_documentation handler.
+        Adds an "&Help" menu to the menu bar with "About Sprite Editor" and "Documentation" actions and connects them to the `_on_about` and `_on_documentation` handlers respectively.
         """
         help_menu = self.menu_bar.addMenu("&Help")
         
@@ -154,9 +149,9 @@ class MenuManager:
     
     def _on_save_frames(self):
         """
-        Trigger saving of frames through the main window.
+        Invoke the main window's save action for frames.
         
-        If the main window implements a `save_frames` method, calls it to perform the save operation; otherwise does nothing.
+        Calls main_window.save_frames() if that method exists on the main window; no action is taken otherwise.
         """
         # این متد باید در MainWindow پیاده‌سازی شود
         if hasattr(self.main_window, 'save_frames'):
@@ -164,9 +159,9 @@ class MenuManager:
     
     def _on_export_selection(self):
         """
-        Invoke the main window's export_selection handler if implemented.
+        Trigger export of the currently selected frames using the main window.
         
-        Calls self.main_window.export_selection() when the main window provides that method; no action is taken if it is absent.
+        If the main window implements an `export_selection` method, this method will call it; otherwise no action is taken.
         """
         # این متد باید در MainWindow پیاده‌سازی شود
         if hasattr(self.main_window, 'export_selection'):
@@ -174,9 +169,9 @@ class MenuManager:
     
     def _on_grid_settings(self):
         """
-        Open the main window's grid settings dialog if available.
+        Open the main window's grid settings dialog.
         
-        If the main window provides a grid settings handler, this method triggers it.
+        Calls main_window.show_grid_settings() if the main window implements it.
         """
         # این متد باید در MainWindow پیاده‌سازی شود
         if hasattr(self.main_window, 'show_grid_settings'):
@@ -186,7 +181,7 @@ class MenuManager:
         """
         Clear the current selection in the main window.
         
-        If the main window implements a `clear_selection` method, this method invokes it.
+        If the main window provides a `clear_selection` method, this handler invokes it; otherwise no action is taken.
         """
         # این متد باید در MainWindow پیاده‌سازی شود
         if hasattr(self.main_window, 'clear_selection'):
@@ -194,10 +189,10 @@ class MenuManager:
     
     def _on_toggle_grid_toolbar(self, checked):
         """
-        Set visibility of the grid toolbar.
+        Toggle the visibility of the grid toolbar on the main window.
         
         Parameters:
-            checked (bool): True to show the grid toolbar, False to hide it.
+            checked (bool): True to show the grid toolbar, False to hide it. If the main window does not provide a `toggle_grid_toolbar` method, this call has no effect.
         """
         # این متد باید در MainWindow پیاده‌سازی شود
         if hasattr(self.main_window, 'toggle_grid_toolbar'):
@@ -205,12 +200,10 @@ class MenuManager:
     
     def _on_toggle_detect_toolbar(self, checked):
         """
-        Handle toggling of the detection toolbar visibility.
-        
-        Calls the main window's `toggle_detect_toolbar` method with the given state if that method exists.
+        Set the visibility of the detection toolbar.
         
         Parameters:
-            checked (bool): `True` to show the detection toolbar, `False` to hide it.
+            checked (bool): True to show the detection toolbar, False to hide it.
         """
         # این متد باید در MainWindow پیاده‌سازی شود
         if hasattr(self.main_window, 'toggle_detect_toolbar'):
@@ -218,9 +211,9 @@ class MenuManager:
     
     def _on_about(self):
         """
-        Show the application's About dialog.
+        Show an "About Sprite Editor" dialog with the application name and a short description.
         
-        Displays an "About Sprite Editor" dialog containing the application name, version (v1.0), and a brief description.
+        Displays a modal About dialog titled "About Sprite Editor" containing the application version and a brief description of the tool.
         """
         from PyQt6.QtWidgets import QMessageBox
         
@@ -230,9 +223,10 @@ class MenuManager:
     
     def _on_documentation(self):
         """
-        Show a modal informational dialog that points to the project's documentation.
+        Show an information dialog that directs the user to the application's documentation.
         
-        Displays a message box titled "Documentation" containing the documentation URL for the application.
+        Displays a modal message box titled "Documentation" containing the documentation URL:
+        https://github.com/your-repo/docs
         """
         from PyQt6.QtWidgets import QMessageBox
         

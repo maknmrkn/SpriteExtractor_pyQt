@@ -9,10 +9,10 @@ import logging
 class ExportOperations:
     def __init__(self, tree_manager):
         """
-        Create an ExportOperations instance bound to the given tree manager.
+        Create an ExportOperations instance bound to a tree manager.
         
         Parameters:
-            tree_manager: The tree manager that provides access to the sprite tree and the application's main_window; stored as `self.tree_manager`. The initializer also caches `tree_manager.main_window` as `self.main_window` and acquires a global QThreadPool and logger for background work and logging.
+            tree_manager: The tree manager that provides access to the sprite tree and the application's main_window. Stored as `self.tree_manager`; its `main_window` is cached as `self.main_window` for dialogs and status updates. The instance also acquires a global `QThreadPool` and configures a module logger for background tasks and reporting.
         """
         self.tree_manager = tree_manager
         self.main_window = tree_manager.main_window
@@ -100,18 +100,17 @@ class ExportOperations:
 
     def _export_group_impl(self, group_item, dir_path, progress_callback=None):
         """
-        Export all non-group sprite items directly contained in `group_item` to image files in `dir_path`.
+        Export all non-group child sprites of the given group item to image files in the specified directory.
+        
+        Intended to run in a background thread; iterates the group's direct children, skips subgroup items, obtains each child's original QPixmap (if available), and saves each valid pixmap to a file in dir_path using the child's text as the filename (PNG by default, JPEG at 90% quality when the filename ends with .jpg/.jpeg).
         
         Parameters:
-            group_item: The tree group item whose direct (non-group) children will be exported. Must provide `.text(0)` for naming and optionally `get_original_pixmap()` for image data.
-            dir_path (str): Destination directory path where image files will be written.
-            progress_callback (callable, optional): Optional callback for progress updates; ignored if not provided.
+        	group_item: The tree item representing a group; only its direct (non-group) children are exported.
+        	dir_path: The directory path where exported image files will be written.
+        	progress_callback (callable, optional): Optional callback for progress updates (not required).
         
         Returns:
-            str: A human-readable success message for the exported group.
-        
-        Raises:
-            Exception: Propagates any exception that occurs during the export process.
+        	result_message (str): A success message describing the exported group when the operation completes.
         """
         try:
             self.logger.info(f"Starting export of group '{group_item.text(0)}' to {dir_path}")
@@ -153,22 +152,20 @@ class ExportOperations:
 
     def _export_group_success(self, result):
         """
-        Display a success message for a completed group export and record it in the log.
+        Handle a successful group export by notifying the UI and logging the outcome.
         
         Parameters:
-            result (str): Message to log and show in the main window's status bar.
+            result (str): Message describing the successful export; shown in the main window's status bar and written to the logger.
         """
         self.logger.info(result)
         self.main_window.statusBar().showMessage(result, 3000)
 
     def _export_group_error(self, error_info):
         """
-        Handle an error raised during group export by reporting it to the UI and application log.
-        
-        Logs the exception message and displays it in the main window status bar and a critical message box.
+        Handle an error that occurred during a group export by logging and notifying the user.
         
         Parameters:
-            error_info (tuple): Exception info tuple as (exc_type, value, traceback_str); the exception `value` is shown to the user.
+            error_info (tuple): A tuple (exc_type, value, traceback_str) describing the error; `value` is the exception instance whose message is shown to the user.
         """
         exctype, value, tb_str = error_info
         self.logger.error(f"Failed to export group: {str(value)}")
@@ -178,12 +175,12 @@ class ExportOperations:
 
     def _export_group_as_gif(self, group_item):
         """
-        Export the sprites in a group as an animated GIF file.
+        Export the specified group as an animated GIF by prompting the user for a destination file and running the export in a background thread.
         
-        Prompts the user for a destination GIF file and starts a background task to create an animated GIF from the group's sprite pixmaps. If the item is not a group or the user cancels the dialog, no action is taken.
+        Prompts the user to choose a GIF file path; if a path is chosen, starts a background worker that collects the group's sprite frames, converts them to images, and writes an animated GIF. If the item is not a group, the user cancels, or the group contains no sprites, no action is taken and no error is raised.
         
         Parameters:
-            group_item: Tree item representing the group to export.
+            group_item: The tree item representing the group to export; must be a group item.
         """
         if not group_item or not self.tree_manager._is_group_item(group_item):
             return
@@ -207,21 +204,24 @@ class ExportOperations:
 
     def _export_group_as_gif_impl(self, group_item, path, progress_callback=None):
         """
-        Export the given group's sprite frames as an animated GIF file.
+        Export all non-group sprite children of `group_item` as an animated GIF saved to `path`.
         
-        Collects all non-group sprite pixmaps from the provided group item, converts them to PIL Images, and saves them as an animated GIF at `path`. If no valid images are found, returns a short status message instead of writing a file.
+        Collects sprite pixmaps from the provided group, converts them to PIL Images, and writes an animated GIF (100 ms frame duration, looping). If no sprite pixmaps or no valid images are found, returns a descriptive message instead of creating a file.
         
         Parameters:
-            group_item: The tree item representing a sprite group whose descendant sprites will be exported.
-            path (str): The filesystem path where the resulting GIF will be written.
-            progress_callback (callable, optional): Optional callback for progress updates; expected to accept a single numeric progress value.
+            group_item: A tree item representing the group whose descendant sprite items will be exported.
+            path (str): Filesystem path where the animated GIF will be written.
+            progress_callback (callable, optional): Optional callable to receive progress updates (implementation may call with a numeric progress value).
         
         Returns:
-            str: A status message describing the outcome. Examples include a success message with the output path, "No sprites found for GIF export", or "No valid images found for GIF export".
+            str: A human-readable result message. Examples:
+                - "GIF exported successfully to:\n{path}" on success,
+                - "No sprites found for GIF export" if the group contains no sprites,
+                - "No valid images found for GIF export" if conversion fails for all images.
         
         Raises:
             ImportError: If the Pillow library is not available.
-            Exception: Any unexpected error encountered during collection, conversion, or saving is re-raised.
+            Exception: Re-raises unexpected errors that occur during processing.
         """
         try:
             self.logger.info(f"Starting GIF export of group '{group_item.text(0)}' to {path}")
@@ -266,10 +266,10 @@ class ExportOperations:
 
     def _export_gif_success(self, result):
         """
-        Handle a successful GIF export by logging the result and notifying the user.
+        Notify the user and log a message when a GIF export completes successfully.
         
         Parameters:
-            result (str): Success message to log and display to the user.
+            result (str): Human-readable success message (for example, the output file path or confirmation text).
         """
         self.logger.info(result)
         self.main_window.statusBar().showMessage("GIF exported successfully", 3000)
@@ -277,10 +277,13 @@ class ExportOperations:
 
     def _export_gif_error(self, error_info):
         """
-        Handle an error that occurred during GIF export by logging the exception and notifying the user.
+        Handle an error raised during GIF export.
         
         Parameters:
-            error_info (tuple): A tuple (exctype, value, tb_str) containing the exception type, exception value, and traceback string.
+            error_info (tuple): A tuple (exc_type, value, tb_str) describing the exception; `value` is the exception instance.
+        
+        Description:
+            Logs the error, shows the error message in the main window status bar for 5 seconds, and displays a warning dialog informing the user that the Pillow library is required for GIF export.
         """
         exctype, value, tb_str = error_info
         self.logger.error(f"Failed to export GIF: {str(value)}")
@@ -289,13 +292,12 @@ class ExportOperations:
 
     def _export_selected_sprites(self, selected_rects):
         """
-        Export canvas regions defined by selected rectangles to PNG files in a user-selected directory.
+        Export the sprites encompassed by the given canvas rectangles to PNG files in a user-selected directory.
         
-        If `selected_rects` is empty or no directory is chosen, no action is taken. Otherwise the method prompts the user to choose a target directory and dispatches a background worker that extracts each rectangle from the canvas and saves valid sprites as files named like `sprite_000.png`, `sprite_001.png`, etc.
+        Prompts the user to choose a target directory; if a directory is selected, schedules a background worker that extracts each rectangle from the canvas and saves valid pixmaps as files named `sprite_000.png`, `sprite_001.png`, etc. If `selected_rects` is empty or the directory selection is cancelled, no action is taken. Invalid or null pixmaps are skipped. The worker's completion and error signals are connected to the class's success and error handlers.
         
         Parameters:
-            selected_rects: iterable
-                An iterable of rectangle-like objects providing `x()`, `y()`, `width()`, and `height()` methods that define the regions to export.
+            selected_rects (iterable): An iterable of rectangle-like objects exposing `x()`, `y()`, `width()`, and `height()` methods that define the regions to export.
         """
         if not selected_rects:
             return
@@ -317,15 +319,20 @@ class ExportOperations:
 
     def _export_selected_sprites_impl(self, selected_rects, dir_path, progress_callback=None):
         """
-        Export the given canvas rectangles as individual PNG files into the specified directory.
+        Export sprites defined by a sequence of rectangles to PNG files in the given directory.
+        
+        Iterates over `selected_rects`, extracts each sprite from the canvas using the tree manager, and saves valid pixmaps as files named `sprite_000.png`, `sprite_001.png`, ... in `dir_path`. Invalid or null pixmaps are skipped and a warning is logged for any failed save operations. Returns a short success message when complete.
         
         Parameters:
-            selected_rects (Iterable[QRect]): Iterable of QRect objects defining regions on the canvas to extract and save as separate sprite images.
-            dir_path (str): Filesystem directory path where exported PNG files will be written.
-            progress_callback (Optional[Callable[[int], None]]): Optional callable to report progress percentage; may be called with values 0–100.
+            selected_rects (Iterable): Sequence of rectangle-like objects with `x()`, `y()`, `width()`, and `height()` methods specifying sprite regions.
+            dir_path (str): Destination directory path where exported PNG files will be written.
+            progress_callback (callable, optional): Ignored by this implementation; present for compatibility with worker progress reporting.
         
         Returns:
-            result (str): Summary message indicating how many sprites were exported, e.g. "Exported N sprites successfully".
+            str: A brief success message indicating how many sprites were exported.
+        
+        Raises:
+            Exception: Propagates any exception raised during extraction or file saving.
         """
         try:
             self.logger.info(f"Starting export of {len(selected_rects)} selected sprites to {dir_path}")
@@ -349,20 +356,20 @@ class ExportOperations:
 
     def _export_selected_success(self, result):
         """
-        Handle a successful export of selected sprites by logging the result and showing it in the main window status bar.
+        Handle successful export of selected sprites by logging the result and displaying it in the main window's status bar.
         
         Parameters:
-            result (str): Message describing the outcome of the export operation.
+            result (str): Message describing the export outcome to display.
         """
         self.logger.info(result)
         self.main_window.statusBar().showMessage(result, 3000)
 
     def _export_selected_error(self, error_info):
         """
-        Handle an error that occurred during export of selected sprites by logging the exception and showing an error message in the main window's status bar.
+        Handle an error that occurred while exporting selected sprites by logging the failure and notifying the user via the main window's status bar.
         
         Parameters:
-            error_info (tuple): Exception information as (exc_type, value, traceback_str) where `value` is the exception instance or message used in the displayed/logged message.
+            error_info (tuple): A tuple of (exception type, exception value, traceback string) describing the error.
         """
         exctype, value, tb_str = error_info
         self.logger.error(f"Failed to export selected sprites: {str(value)}")
@@ -421,13 +428,13 @@ class ExportOperations:
 
     def _collect_sprite_items(self, item, result_list):
         """
-        Collect all non-group sprite items under the given tree item and append them to result_list.
+        Collects all non-group sprite items under a tree item and appends them to result_list.
         
-        Traverses the subtree rooted at `item` recursively and appends each encountered non-group sprite item to `result_list` in traversal order.
+        Traverses the tree rooted at `item` recursively; when a non-group sprite item is encountered it is appended to `result_list` in traversal order.
         
         Parameters:
-            item: The root tree item to traverse; no action if falsy.
-            result_list: List to which found sprite items will be appended.
+            item: The tree item to traverse; traversal does nothing if falsy.
+            result_list: A list to which found sprite items will be appended.
         """
         if not item:
             return

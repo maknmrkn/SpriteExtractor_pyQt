@@ -11,10 +11,12 @@ class StyleManager:
     
     def __init__(self, main_window):
         """
-        Initialize the StyleManager with a reference to the application's main window, set the default theme to "dark", and load built-in stylesheets.
+        Initialize the StyleManager for a main application window.
+        
+        Sets the initial theme to 'dark', prepares the stylesheets container, and populates it by calling _init_stylesheets.
         
         Parameters:
-            main_window: The application's main window (e.g., a QMainWindow) that styles and palettes will be applied to.
+        	main_window (QWidget): The main application window (e.g., QMainWindow) that stylesheets and palettes will be applied to.
         """
         self.main_window = main_window
         self.current_theme = 'dark'
@@ -24,9 +26,9 @@ class StyleManager:
     
     def _init_stylesheets(self):
         """
-        Initialize built-in QSS stylesheets for dark and light themes.
+        Initialize the manager's stylesheets for built-in 'dark' and 'light' themes.
         
-        Populates `self.stylesheets` with two entries, "dark" and "light", each containing a QSS string that styles common widgets (QMainWindow, QGroupBox and its title, QTreeWidget and its items, QLabel, and QScrollArea) to provide the corresponding visual themes.
+        Populates self.stylesheets with CSS strings for 'dark' and 'light' keys, defining widget appearance (QMainWindow, QGroupBox, QTreeWidget, QLabel, QScrollArea, etc.). This method does not return a value.
         """
         # Dark Theme
         self.stylesheets['dark'] = """
@@ -106,15 +108,13 @@ class StyleManager:
     
     def apply_theme(self, theme_name='dark'):
         """
-        Apply a named stylesheet and corresponding palette to the main window.
-        
-        Apply the stylesheet identified by theme_name from the manager's known styles and update the current theme and window palette for visual consistency.
+        Apply a named theme to the application's main window and update the palette to match.
         
         Parameters:
-            theme_name (str): The key of a stylesheet defined in the manager's stylesheets (e.g., 'dark', 'light').
+            theme_name (str): Name of the theme to apply; must be a key in self.stylesheets.
         
         Returns:
-            bool: `true` if the theme was found and applied, `false` otherwise.
+            bool: `True` if the theme was found and applied, `False` otherwise.
         """
         if theme_name in self.stylesheets:
             self.current_theme = theme_name
@@ -128,16 +128,13 @@ class StyleManager:
     
     def _apply_palette(self, theme_name):
         """
-        Apply a color palette to the main window according to the specified theme.
+        Apply a QPalette to the main window based on the given theme name.
         
-        For the 'dark' theme this configures window, text, base, alternate base, tooltip,
-        button, link and highlight colors to a dark scheme; for any other theme the
-        default (light) palette is used. The resulting palette is applied to
-        self.main_window.
+        For 'dark', configures a dark color palette (window, text, base, alternate base, tooltip,
+        button, links, highlights, etc.). For any other value, applies the default palette.
         
         Parameters:
-            theme_name (str): Theme identifier to apply. Use 'dark' for the dark palette;
-                any other value results in the default light palette.
+            theme_name (str): Theme identifier; 'dark' selects the dark palette, other values use the default palette.
         """
         palette = QPalette()
         
@@ -163,36 +160,36 @@ class StyleManager:
     
     def get_available_themes(self):
         """
-        Retrieve the names of all registered themes.
+        Return the names of themes available in the manager.
         
         Returns:
-            list[str]: Available theme names in the manager.
+            list[str]: A list of available theme names.
         """
         return list(self.stylesheets.keys())
     
     def get_current_theme(self):
         """
-        Return the name of the currently active theme.
+        Get the name of the currently applied theme.
         
         Returns:
-            current_theme (str): The name of the currently selected theme (e.g., 'dark' or 'light').
+            str: The current theme name (for example, 'dark' or 'light').
         """
         return self.current_theme
     
     def set_custom_style(self, style_sheet):
         """
-        Apply a custom stylesheet to the main window without modifying the stored theme definitions.
+        Apply a custom Qt stylesheet to the main window.
         
         Parameters:
-            style_sheet (str): QSS/CSS string to apply to the main window.
+            style_sheet (str): Qt stylesheet string to apply to the application's main window.
         """
         self.main_window.setStyleSheet(style_sheet)
     
     def reset_to_default(self):
         """
-        Reset the UI theme to the default ("dark").
+        Reset the theme to the default ('dark').
         
         Returns:
-            True if the default theme was applied successfully, False otherwise.
+            bool: True if the default theme was successfully applied, False otherwise.
         """
         return self.apply_theme('dark')

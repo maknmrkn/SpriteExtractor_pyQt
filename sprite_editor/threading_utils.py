@@ -21,14 +21,15 @@ class Worker(QRunnable):
     """
     def __init__(self, fn, *args, **kwargs):
         """
-        Create a Worker configured to run the given function in a background thread and to emit progress, finished, and error signals.
+        Create a Worker that will run the given callable in a background thread.
         
-        This initializes the worker, stores the target function and its arguments, creates a WorkerSignals instance accessible via `self.signals`, and injects a `progress_callback` keyword argument bound to `self.signals.progress` so the target function can report progress.
+        Stores the callable and its positional and keyword arguments on the instance, creates a WorkerSignals object as `self.signals`, and injects a `progress_callback` entry into `self.kwargs` that is bound to `self.signals.progress` so the target callable can emit progress updates.
         
         Parameters:
-        	fn (callable): The function to execute when the worker runs.
-        	*args: Positional arguments to pass to `fn`.
-        	**kwargs: Keyword arguments to pass to `fn`; a `progress_callback` key will be added/overwritten and set to the worker's progress signal.
+            fn (callable): The function to execute in the worker thread.
+            *args: Positional arguments to pass to `fn`.
+            **kwargs: Keyword arguments to pass to `fn`. Will be mutated to include a
+                `progress_callback` key referencing `self.signals.progress`.
         """
         super().__init__()
         self.fn = fn
@@ -41,9 +42,9 @@ class Worker(QRunnable):
 
     def run(self):
         """
-        Execute the stored callable with its provided positional and keyword arguments and emit appropriate worker signals.
+        Execute the stored callable with the worker's arguments and emit completion or error signals.
         
-        On successful execution emits the `finished` signal with the callable's return value. If an exception is raised, logs the error and emits the `error` signal with a tuple containing the exception type, the exception instance, and the formatted traceback string.
+        On successful completion, emits the worker's `finished` signal with the callable's return value. If an exception is raised, logs the traceback and emits the worker's `error` signal with a tuple `(exception type, exception instance, formatted traceback)`.
         """
         try:
             result = self.fn(*self.args, **self.kwargs)
