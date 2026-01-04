@@ -1,6 +1,6 @@
 import os
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
-from .threading_utils import Worker
+from ..utils.threading_utils import Worker
 from PyQt6.QtCore import QThreadPool
 import logging
 

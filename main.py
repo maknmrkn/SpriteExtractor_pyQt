@@ -1,5 +1,5 @@
 import sys
-from sprite_editor.main_window import MainWindow
+from sprite_editor.ui.main_window import MainWindow
 from PyQt6.QtWidgets import QApplication
 
 

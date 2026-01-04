@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import QTreeWidgetItem
 from PyQt6.QtCore import Qt, pyqtSignal
 from .tree_structure_manager import TreeStructureManager
-from .tree_context_menu import TreeContextMenu
-from .sprite_operations import SpriteOperations
-from .export_operations import ExportOperations
+from ..controllers.tree_context_menu import TreeContextMenu
+from ..logic.sprite_operations import SpriteOperations
+from ..logic.export_operations import ExportOperations
 
 
 class TreeManager:

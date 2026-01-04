@@ -4,10 +4,10 @@ from PyQt6.QtGui import QColor
 from .canvas import Canvas
 from .thumbnail_grid import ThumbnailWidget
 from .animation_preview import AnimationPreviewWidget
-from .tree_manager import TreeManager
-from .ui_utils import UIUtils
-from .tree_item import ThumbnailTreeWidgetItem
-from .sprite_detector import SpriteDetector
+from ..models.tree_manager import TreeManager
+from ..utils.ui_utils import UIUtils
+from ..models.tree_item import ThumbnailTreeWidgetItem
+from ..logic.sprite_detector import SpriteDetector
 
 
 class MainWindow(QMainWindow):
