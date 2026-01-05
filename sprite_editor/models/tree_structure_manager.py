@@ -1,3 +1,9 @@
+"""
+Main module for managing the sprite tree structure.
+This class acts as a facade, orchestrating the core tree operations,
+context menu, and various logic modules.
+"""
+
 from PyQt6.QtWidgets import QTreeWidget, QTreeWidgetItem, QAbstractItemView, QHeaderView, QInputDialog, QMessageBox
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon

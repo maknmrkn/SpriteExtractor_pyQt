@@ -1,6 +1,5 @@
 from PyQt6.QtWidgets import QTreeWidgetItem, QTreeWidget
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
 from ..models.tree_item import ThumbnailTreeWidgetItem
 
 

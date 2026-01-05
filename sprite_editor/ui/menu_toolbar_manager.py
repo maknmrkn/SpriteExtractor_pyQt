@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QMenuBar, QToolBar, QSpinBox, QLabel, QHBoxLayout, QComboBox, QPushButton, QColorDialog, QStatusBar, QFileDialog, QWidget
+from PyQt6.QtWidgets import QMenuBar, QToolBar, QSpinBox, QLabel, QHBoxLayout, QComboBox, QPushButton, QWidget
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QColor
 

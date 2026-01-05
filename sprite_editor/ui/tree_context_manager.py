@@ -1,4 +1,5 @@
-from PyQt6.QtWidgets import QMenu, QTreeWidgetItem, QMessageBox
+from PyQt6.QtWidgets import QMenu, QMessageBox
+from PyQt6.QtCore import Qt
 
 
 class TreeContextManager:

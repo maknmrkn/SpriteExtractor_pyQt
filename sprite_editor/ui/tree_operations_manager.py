@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QMenu, QMessageBox
+from PyQt6.QtWidgets import QMenu, QMessageBox, QTreeWidget
 from PyQt6.QtCore import Qt
 from .tree_ui_manager import TreeUIManager
 from .tree_context_manager import TreeContextManager
@@ -309,7 +309,3 @@ class TreeOperationsManager:
     def _extract_sprite_pixmap(self, x, y, width, height):
         """Extract a cropped QPixmap for the specified rectangle from the canvas image."""
         return self.tree_ui_manager._extract_sprite_pixmap(x, y, width, height)
-
-
-from .tree_ui_manager import TreeUIManager
-from .tree_context_manager import TreeContextManager
